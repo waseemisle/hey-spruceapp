@@ -217,7 +217,7 @@ export default function CategoriesManagement() {
               <div key={category.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
                 {/* Category name */}
                 <div className="flex items-center gap-2 min-w-0">
-                  <Tag className="h-4 w-4 text-blue-600 shrink-0" />
+                  <Tag className="h-4 w-4 text-primary shrink-0" />
                   <p className="text-sm font-semibold text-foreground truncate">{category.name}</p>
                 </div>
                 {/* System info */}
@@ -227,7 +227,7 @@ export default function CategoriesManagement() {
                     <span>
                       Created by: {category.createdByName || 'Unknown'} via{' '}
                       <span className={`px-1 py-0.5 rounded text-[10px] font-semibold ${
-                        category.creationSource === 'admin_portal' ? 'bg-blue-100 text-blue-700'
+                        category.creationSource === 'admin_portal' ? 'bg-primary/15 text-primary'
                         : category.creationSource === 'csv_import' ? 'bg-purple-100 text-purple-700'
                         : 'bg-muted text-foreground'
                       }`}>

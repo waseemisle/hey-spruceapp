@@ -233,7 +233,7 @@ export default function AdminUsersManagement() {
                     <p className="text-sm font-semibold text-foreground truncate">{admin.fullName}</p>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">{admin.email}</p>
                   </div>
-                  <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold text-blue-700 bg-blue-50">Admin</span>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold text-primary bg-primary/10">Admin</span>
                 </div>
                 {/* Row 2: phone */}
                 <div className="flex items-center justify-between text-sm gap-2">
@@ -249,7 +249,7 @@ export default function AdminUsersManagement() {
                     type="button"
                     onClick={() => handleToggleWorkOrderEmail(admin)}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shrink-0 ${
-                      admin.workOrderEmailNotifications ? 'bg-blue-600' : 'bg-muted-foreground/30'
+                      admin.workOrderEmailNotifications ? 'bg-primary' : 'bg-muted-foreground/30'
                     }`}
                     title={admin.workOrderEmailNotifications ? 'Disable work order email notifications' : 'Enable work order email notifications'}
                   >

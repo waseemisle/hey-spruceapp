@@ -17,7 +17,7 @@ import {
 import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Client {
   uid: string;
   email: string;
@@ -50,7 +50,7 @@ interface Location {
 }
 
 const AVATAR_COLORS = [
-  'from-blue-500 to-blue-700',
+  'from-primary to-violet-700',
   'from-purple-500 to-purple-700',
   'from-green-500 to-green-700',
   'from-orange-500 to-orange-700',
@@ -372,29 +372,23 @@ export default function ClientsManagement() {
   };
 
   return (
-    <>
-      <PageContainer>
+    <PortalListPage
+      title="Clients"
+      subtitle="Manage client registrations and approvals"
+      icon={Users}
+      heroAction={
+        <Button onClick={handleOpenCreate} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Create Client
+        </Button>
+      }
+    >
       <div className="space-y-6">
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Users className="h-7 w-7 text-blue-600" />
-              Clients
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage client registrations and approvals</p>
-          </div>
-          <Button onClick={handleOpenCreate} className="gap-2 self-start sm:self-auto">
-            <Plus className="h-4 w-4" />
-            Create Client
-          </Button>
-        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total', value: stats.total, icon: Users, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+            { label: 'Total', value: stats.total, icon: Users, color: 'text-primary bg-primary/10 border-primary/15' },
             { label: 'Approved', value: stats.approved, icon: BadgeCheck, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
             { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600 bg-amber-50 border-amber-100' },
             { label: 'Rejected', value: stats.rejected, icon: XCircle, color: 'text-red-600 bg-red-50 border-red-100' },
@@ -491,7 +485,7 @@ export default function ClientsManagement() {
                   {clientLocations.length > 0 && (
                     <div className="flex items-center gap-1 flex-wrap">
                       {clientLocations.slice(0, 2).map((location) => (
-                        <span key={location.id} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
+                        <span key={location.id} className="text-xs bg-primary/10 text-primary border border-primary/15 px-2 py-0.5 rounded-full">
                           {location.locationName}
                         </span>
                       ))}
@@ -588,7 +582,7 @@ export default function ClientsManagement() {
                       </td>
                       <td className="px-4 py-3.5 hidden md:table-cell">
                         {clientLocations.length > 0 ? (
-                          <span className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
+                          <span className="text-xs bg-primary/10 text-primary border border-primary/15 px-2 py-0.5 rounded-full">
                             {clientLocations.length} location{clientLocations.length !== 1 ? 's' : ''}
                           </span>
                         ) : (
@@ -693,7 +687,7 @@ export default function ClientsManagement() {
                                       : formData.assignedLocations.filter(id => id !== location.id),
                                   });
                                 }}
-                                className="h-4 w-4 text-blue-600 rounded border-input focus:ring-ring"
+                                className="h-4 w-4 text-primary rounded border-input focus:ring-ring"
                               />
                               <span className="text-sm text-foreground">{location.locationName}</span>
                             </label>
@@ -905,7 +899,6 @@ export default function ClientsManagement() {
           </div>
         )}
       </div>
-          </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

@@ -12,9 +12,7 @@ import {
   LogIn, LogOut, Clock, RefreshCw,
 } from 'lucide-react';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface UserEntry {
   id: string;
   name: string;
@@ -66,7 +64,7 @@ const loginColor = (iso: string | null) => {
 const roleBadge = (role: string) => {
   const m: Record<string, string> = {
     admin: 'bg-purple-50 text-purple-700 border-purple-200',
-    client: 'bg-blue-50 text-blue-700 border-blue-200',
+    client: 'bg-primary/10 text-primary border-primary/20',
     subcontractor: 'bg-orange-50 text-orange-700 border-orange-200',
   };
   return m[role] || 'bg-muted/60 text-foreground border-border';
@@ -143,35 +141,34 @@ export default function UserActivityPage() {
   };
 
   if (loading) {
-    return <>
-      <PageContainer>
-        <PortalHero
-          title="User Activity"
-          subtitle=""
-          icon={Sparkles}
-        /><div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>      </PageContainer>
-    </>;
+    return (
+      <PortalListPage title="User Activity" subtitle="Loading…" icon={Users}>
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </PortalListPage>
+    );
   }
 
   return (
-    <>
+    <PortalListPage
+      title="User Activity"
+      subtitle="Login history for all users (times in EST)"
+      icon={Users}
+      heroAction={
+        <Button variant="outline" size="sm" onClick={() => { setDataLoading(true); fetchData(); }}>
+          <RefreshCw className={`h-4 w-4 mr-1 ${dataLoading ? 'animate-spin' : ''}`} /> Refresh
+        </Button>
+      }
+    >
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">User Activity</h1>
-            <p className="text-muted-foreground mt-1">Login history for all users (times in EST)</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => { setDataLoading(true); fetchData(); }}>
-            <RefreshCw className={`h-4 w-4 mr-1 ${dataLoading ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
-        </div>
 
         {/* Summary */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
           {[
             { label: 'Total Users', val: counts.all, color: '' },
             { label: 'Admins', val: counts.admin, color: 'text-purple-600' },
-            { label: 'Clients', val: counts.client, color: 'text-blue-600' },
+            { label: 'Clients', val: counts.client, color: 'text-primary' },
             { label: 'Subcontractors', val: counts.subcontractor, color: 'text-orange-600' },
             { label: 'Active (24h)', val: counts.active24h, color: 'text-emerald-600' },
             { label: 'Total Logins', val: counts.totalLogins, color: 'text-indigo-600' },
@@ -299,6 +296,6 @@ export default function UserActivityPage() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </PortalListPage>
   );
 }

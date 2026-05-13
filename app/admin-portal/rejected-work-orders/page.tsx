@@ -10,9 +10,7 @@ import { Input } from '@/components/ui/input';
 import { XCircle, Search, Eye, Calendar, User } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface WorkOrder {
   id: string;
   workOrderNumber: string;
@@ -97,36 +95,26 @@ export default function RejectedWorkOrders() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Rejected Work Orders"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Rejected Work Orders" subtitle="Loading…" icon={XCircle}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
+    <PortalListPage
+      title="Rejected Work Orders"
+      subtitle="View all rejected work orders and rejection reasons"
+      icon={XCircle}
+      heroAction={
+        <span className="text-sm text-muted-foreground">
+          Total: <span className="font-bold text-foreground">{workOrders.length}</span> rejected work orders
+        </span>
+      }
+    >
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2">
-              <XCircle className="h-8 w-8 text-red-600" />
-              Rejected Work Orders
-            </h1>
-            <p className="text-muted-foreground mt-2">View all rejected work orders and rejection reasons</p>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Total: <span className="font-bold text-foreground">{workOrders.length}</span> rejected work orders
-          </div>
-        </div>
 
         {/* Search Bar */}
         <div className="relative">
@@ -206,6 +194,6 @@ export default function RejectedWorkOrders() {
           </div>
         )}
       </div>
-    </>
+    </PortalListPage>
   );
 }

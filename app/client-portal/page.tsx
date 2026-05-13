@@ -23,9 +23,7 @@ import {
   type RecentItemRow,
 } from '@/lib/dashboard-utils';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 export default function ClientDashboard() {
   const { auth, db } = useFirebaseInstance();
   const [workOrdersData, setWorkOrdersData] = useState({
@@ -198,21 +196,14 @@ export default function ClientDashboard() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Client Portal"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center min-h-screen">
+      <PortalListPage title="Client Portal" subtitle="Loading your workspace…" icon={LayoutDashboard}>
+        <div className="flex min-h-[50vh] items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary mx-auto"></div>
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
             <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
           </div>
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -227,7 +218,11 @@ export default function ClientDashboard() {
   const openDiagnostics = diagnosticData.pendingReview;
 
   return (
-    <>
+    <PortalListPage
+      title="Client Portal"
+      subtitle="Work orders, proposals, diagnostics, and invoices in one place."
+      icon={LayoutDashboard}
+    >
       <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         <DashboardSearchBar portalType="client" onSearch={handleSearch} />
 
@@ -238,7 +233,7 @@ export default function ClientDashboard() {
             icon={LayoutDashboard}
             accent="blue"
             stats={[
-              { label: 'Active work orders', value: totalWorkOrders,  icon: ClipboardList, iconClass: 'text-blue-600 dark:text-blue-400',     iconBg: 'bg-blue-50 dark:bg-blue-950/40' },
+              { label: 'Active work orders', value: totalWorkOrders,  icon: ClipboardList, iconClass: 'text-primary dark:text-primary',     iconBg: 'bg-primary/10 dark:bg-primary/20' },
               { label: 'Open proposals',     value: openProposals,    icon: FileText,      iconClass: 'text-amber-600 dark:text-amber-400',   iconBg: 'bg-amber-50 dark:bg-amber-950/40' },
               { label: 'Diagnostic reviews', value: openDiagnostics,  icon: Stethoscope,   iconClass: 'text-purple-600 dark:text-purple-400', iconBg: 'bg-purple-50 dark:bg-purple-950/40' },
               { label: 'Invoices to review', value: openInvoices,     icon: Receipt,       iconClass: 'text-emerald-600 dark:text-emerald-400', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
@@ -251,6 +246,6 @@ export default function ClientDashboard() {
           <InvoicesSection data={invoicesData} portalType="client" items={invoiceItems} />
         </div>
       </div>
-    </>
+    </PortalListPage>
   );
 }

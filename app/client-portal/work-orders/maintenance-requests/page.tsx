@@ -2,8 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { Sparkles } from 'lucide-react';
 
 export default function ClientMaintenanceRequestsWorkOrders() {
@@ -14,16 +13,13 @@ export default function ClientMaintenanceRequestsWorkOrders() {
   }, [router]);
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero title="Work Orders" subtitle="Redirecting…" icon={Sparkles} />
-        <div className="flex items-center justify-center h-48">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary mx-auto" />
-            <p className="mt-4 text-muted-foreground">Redirecting to Maintenance Requests Work Orders…</p>
-          </div>
+    <PortalListPage title="Work Orders" subtitle="Redirecting…" icon={Sparkles}>
+      <div className="flex h-48 items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          <p className="mt-4 text-muted-foreground">Redirecting to Maintenance Requests Work Orders…</p>
         </div>
-      </PageContainer>
-    </>
+      </div>
+    </PortalListPage>
   );
 }

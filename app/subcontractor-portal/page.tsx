@@ -24,9 +24,7 @@ import {
   type RecentItemRow,
 } from '@/lib/dashboard-utils';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 export default function SubcontractorDashboard() {
   const { auth, db } = useFirebaseInstance();
   const [biddingWorkOrdersData, setBiddingWorkOrdersData] = useState({
@@ -157,26 +155,23 @@ export default function SubcontractorDashboard() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Subcontractor Portal"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center min-h-screen">
+      <PortalListPage title="Subcontractor Portal" subtitle="Loading your workspace…" icon={Wrench}>
+        <div className="flex min-h-[50vh] items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary mx-auto"></div>
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
             <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
           </div>
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
+    <PortalListPage
+      title="Subcontractor Portal"
+      subtitle="Bidding, active jobs, and quotes at a glance."
+      icon={Wrench}
+    >
       <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         <DashboardSearchBar portalType="subcontractor" onSearch={handleSearch} />
 
@@ -189,7 +184,7 @@ export default function SubcontractorDashboard() {
             stats={[
               { label: 'Bidding open',     value: biddingWorkOrdersData.pending,         icon: ClipboardList,  iconClass: 'text-violet-600 dark:text-violet-400', iconBg: 'bg-violet-50 dark:bg-violet-950/40' },
               { label: 'My quotes',        value: myQuotesData.total,                     icon: FileText,       iconClass: 'text-amber-600 dark:text-amber-400',   iconBg: 'bg-amber-50 dark:bg-amber-950/40' },
-              { label: 'Active jobs',      value: assignedJobsData.accepted + assignedJobsData.inProgress, icon: CheckSquare, iconClass: 'text-blue-600 dark:text-blue-400', iconBg: 'bg-blue-50 dark:bg-blue-950/40' },
+              { label: 'Active jobs',      value: assignedJobsData.accepted + assignedJobsData.inProgress, icon: CheckSquare, iconClass: 'text-primary dark:text-primary', iconBg: 'bg-primary/10 dark:bg-primary/20' },
               { label: 'Completed jobs',   value: completedJobsData.completed,            icon: ClipboardCheck, iconClass: 'text-emerald-600 dark:text-emerald-400', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
             ]}
           />
@@ -200,6 +195,6 @@ export default function SubcontractorDashboard() {
           <CompletedJobsSection data={completedJobsData} items={completedItems} />
         </div>
       </div>
-    </>
+    </PortalListPage>
   );
 }

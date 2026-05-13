@@ -35,8 +35,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import type { MessageChannel, MessageEventType, MessageStatus } from '@/lib/messaging/types';
 
 interface MessageLog {
@@ -223,41 +222,29 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero
-          title={title}
-          subtitle={`All ${isWhatsApp ? 'WhatsApp' : 'SMS'} messages sent via ${provider}`}
-          icon={MessageSquare}
-        />
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <MessageSquare className="h-6 w-6 text-muted-foreground" />
-              <div>
-                <h1 className="text-2xl font-bold">{title}</h1>
-                <p className="text-sm text-muted-foreground">
-                  All {isWhatsApp ? 'WhatsApp' : 'SMS'} messages sent from the system
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="bg-muted px-3 py-1 rounded-full text-sm font-medium">
-                {allLoaded ? `${filtered.length} of ${allLogs.length} messages` : 'Loading...'}
-              </span>
-              {selectedIds.size > 0 && (
-                <Button variant="destructive" size="sm" onClick={() => handleDelete([...selectedIds])} disabled={deleting}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {deleting ? 'Deleting...' : `Delete ${selectedIds.size} selected`}
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={handleRefresh} disabled={syncing}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                {syncing ? 'Refreshing...' : 'Refresh'}
-              </Button>
-            </div>
-          </div>
+    <PortalListPage
+      title={title}
+      subtitle={`All ${isWhatsApp ? 'WhatsApp' : 'SMS'} messages sent via ${provider}`}
+      icon={MessageSquare}
+      heroAction={
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="rounded-full bg-muted px-3 py-1 text-sm font-medium">
+            {allLoaded ? `${filtered.length} of ${allLogs.length} messages` : 'Loading...'}
+          </span>
+          {selectedIds.size > 0 && (
+            <Button variant="destructive" size="sm" onClick={() => handleDelete([...selectedIds])} disabled={deleting}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              {deleting ? 'Deleting...' : `Delete ${selectedIds.size} selected`}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={syncing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
 
           {/* Filters */}
           <div className="flex flex-wrap gap-3 items-center">
@@ -512,8 +499,7 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
             )}
           </DialogContent>
         </Dialog>
-      </PageContainer>
-    </>
+    </PortalListPage>
   );
 }
 

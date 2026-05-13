@@ -11,9 +11,7 @@ import Link from 'next/link';
 import { formatAddress } from '@/lib/utils';
 import AdminCalendar from '@/components/calendar/admin-calendar';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface SystemNote {
   action: string;
   userId: string;
@@ -111,18 +109,11 @@ export default function LocationLandingPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Location" subtitle="Loading…" icon={Building2}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -306,7 +297,7 @@ export default function LocationLandingPage() {
                 <div>
                   <span className="font-medium">Source:</span>{' '}
                   <span className={`px-1.5 py-0.5 rounded text-xs font-semibold ${
-                    location.creationSource === 'admin_portal' ? 'bg-blue-100 text-blue-700'
+                    location.creationSource === 'admin_portal' ? 'bg-primary/15 text-primary'
                     : location.creationSource === 'client_portal' ? 'bg-green-100 text-green-700'
                     : location.creationSource === 'maintenance_request_api' ? 'bg-yellow-100 text-yellow-700'
                     : location.creationSource === 'csv_import' ? 'bg-purple-100 text-purple-700'
@@ -355,7 +346,7 @@ export default function LocationLandingPage() {
                     <div key={idx} className="flex gap-3 p-3 rounded-lg border bg-card">
                       <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
                         note.action === 'created' ? 'bg-green-500'
-                        : note.action === 'updated' ? 'bg-blue-500'
+                        : note.action === 'updated' ? 'bg-primary/100'
                         : note.action === 'deleted' ? 'bg-red-500'
                         : 'bg-gray-400'
                       }`} />
@@ -364,7 +355,7 @@ export default function LocationLandingPage() {
                           <span className="font-medium text-foreground">{note.userName}</span>
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
                             note.action === 'created' ? 'bg-green-100 text-green-700'
-                            : note.action === 'updated' ? 'bg-blue-100 text-blue-700'
+                            : note.action === 'updated' ? 'bg-primary/15 text-primary'
                             : 'bg-muted text-foreground'
                           }`}>
                             {note.action}

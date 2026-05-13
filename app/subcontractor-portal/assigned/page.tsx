@@ -67,7 +67,7 @@ const PRIORITY_CONFIG: Record<string, { className: string; dot: string }> = {
 
 const JOB_STATUS_CONFIG: Record<string, { className: string; dot: string; label: string }> = {
   pending_acceptance: { className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', label: 'Pending Acceptance' },
-  accepted: { className: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500', label: 'Accepted' },
+  accepted: { className: 'bg-primary/10 text-primary border-primary/20', dot: 'bg-primary/100', label: 'Accepted' },
   rejected: { className: 'bg-red-50 text-red-700 border-red-200', dot: 'bg-red-500', label: 'Rejected' },
   diagnostic_submitted: { className: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500', label: 'Awaiting Admin Decision' },
   repair_approved: { className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', label: 'Repair Approved' },
@@ -949,9 +949,9 @@ export default function SubcontractorAssignedJobs() {
   ];
 
   const statsData = [
-    { label: 'Total Jobs', value: assignedJobs.length, color: 'border-blue-200 bg-blue-50', textColor: 'text-blue-700', icon: <ClipboardList className="h-5 w-5 text-blue-500" /> },
+    { label: 'Total Jobs', value: assignedJobs.length, color: 'border-primary/20 bg-primary/10', textColor: 'text-primary', icon: <ClipboardList className="h-5 w-5 text-primary" /> },
     { label: 'Pending', value: filterOptions[1].count, color: 'border-amber-200 bg-amber-50', textColor: 'text-amber-700', icon: <Clock className="h-5 w-5 text-amber-500" /> },
-    { label: 'In Progress', value: filterOptions[2].count, color: 'border-blue-200 bg-blue-50', textColor: 'text-blue-700', icon: <CheckSquare className="h-5 w-5 text-blue-500" /> },
+    { label: 'In Progress', value: filterOptions[2].count, color: 'border-primary/20 bg-primary/10', textColor: 'text-primary', icon: <CheckSquare className="h-5 w-5 text-primary" /> },
     { label: 'Completed', value: filterOptions[3].count, color: 'border-emerald-200 bg-emerald-50', textColor: 'text-emerald-700', icon: <CheckCircle className="h-5 w-5 text-emerald-500" /> },
   ];
 
@@ -974,7 +974,7 @@ export default function SubcontractorAssignedJobs() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <ClipboardList className="h-7 w-7 text-blue-600" />
+              <ClipboardList className="h-7 w-7 text-primary" />
               Assigned Jobs
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">Manage your assigned work orders</p>

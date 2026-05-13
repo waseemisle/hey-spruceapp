@@ -1,8 +1,6 @@
 'use client';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 /**
  * Admin → Scheduled Invoices (list)
  *
@@ -13,7 +11,6 @@ import { Sparkles } from 'lucide-react';
  * /admin-portal/scheduled-invoices/[id]. Cron execution is wired up in
  * /api/scheduled-invoices/cron and surfaced on /admin-portal/cron-jobs.
  */
-
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
@@ -98,29 +95,20 @@ export default function ScheduledInvoicesListPage() {
   }, [invoices, filter, searchQuery]);
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero
-          title="Scheduled Invoices"
-          subtitle=""
-          icon={Sparkles}
-        />
+    <PortalListPage
+      title="Scheduled Invoices"
+      subtitle="Recurring billing schedules. The cron creates a real invoice + Stripe pay link on each iteration date."
+      icon={Receipt}
+      heroAction={
+        <Link href="/admin-portal/scheduled-invoices/create">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Scheduled Invoice
+          </Button>
+        </Link>
+      }
+    >
       <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Scheduled Invoices</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Recurring billing schedules. The cron creates a real invoice + Stripe pay link on
-              each iteration date.
-            </p>
-          </div>
-          <Link href="/admin-portal/scheduled-invoices/create">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Scheduled Invoice
-            </Button>
-          </Link>
-        </div>
 
         <div className="flex flex-wrap items-center gap-2 border-b border-border">
           {FILTERS.map(f => (
@@ -129,7 +117,7 @@ export default function ScheduledInvoicesListPage() {
               onClick={() => setFilter(f.key)}
               className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                 filter === f.key
-                  ? 'border-blue-600 text-blue-700'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -185,12 +173,12 @@ export default function ScheduledInvoicesListPage() {
                   href={`/admin-portal/scheduled-invoices/${inv.id}`}
                   className="block"
                 >
-                  <Card className="hover:border-blue-300 transition-colors">
+                  <Card className="hover:border-primary/25 transition-colors">
                     <CardContent className="p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Receipt className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <Receipt className="h-4 w-4 text-primary flex-shrink-0" />
                             <span className="font-mono text-xs text-muted-foreground">
                               {inv.scheduledInvoiceNumber}
                             </span>
@@ -207,7 +195,7 @@ export default function ScheduledInvoicesListPage() {
                               {inv.status}
                             </span>
                             {inv.recurrencePatternLabel && (
-                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                                 {inv.recurrencePatternLabel}
                               </span>
                             )}
@@ -257,7 +245,6 @@ export default function ScheduledInvoicesListPage() {
           </div>
         )}
       </div>
-          </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

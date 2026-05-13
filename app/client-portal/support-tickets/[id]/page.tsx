@@ -238,7 +238,7 @@ export default function ClientSupportTicketDetailPage() {
                   type="button"
                   onClick={() => setTab(t)}
                   className={`pb-2 px-1 text-sm font-medium capitalize border-b-2 -mb-px ${
-                    tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-muted-foreground'
+                    tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
                   }`}
                 >
                   {t === 'comments' && <MessageSquare className="inline h-4 w-4 mr-1" />}
@@ -267,7 +267,7 @@ export default function ClientSupportTicketDetailPage() {
                         {(c.attachments?.length ?? 0) > 0 && (
                           <div className="mt-2 flex flex-wrap gap-2">
                             {c.attachments!.map((a) => (
-                              <a key={a.id} href={a.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">{a.fileName}</a>
+                              <a key={a.id} href={a.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">{a.fileName}</a>
                             ))}
                           </div>
                         )}

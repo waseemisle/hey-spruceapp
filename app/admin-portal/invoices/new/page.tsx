@@ -155,10 +155,10 @@ function SearchableSelect({
                 <li
                   key={opt.value}
                   onMouseDown={() => { onChange(opt.value); setOpen(false); setSearch(''); }}
-                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${opt.value === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-foreground'}`}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-primary/10 ${opt.value === value ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
                 >
                   {opt.label}
-                  {opt.value === value && <Check className="h-3.5 w-3.5 text-blue-600" />}
+                  {opt.value === value && <Check className="h-3.5 w-3.5 text-primary" />}
                 </li>
               ))}
           </ul>
@@ -855,7 +855,7 @@ function CreateInvoiceContent() {
                       <select
                         value={autoChargePmId}
                         onChange={(e) => setAutoChargePmId(e.target.value)}
-                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                       >
                         {clientPaymentMethods.map((pm) => (
                           <option key={pm.id} value={pm.id}>
@@ -1038,7 +1038,7 @@ function CreateInvoiceContent() {
               */}
               <div className="pt-3 border-t space-y-3">
                 {markupContext === 'diagnostic' ? (
-                  <div className="rounded-md border border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2 text-xs text-blue-800 dark:text-blue-200">
+                  <div className="rounded-md border border-primary/20 bg-primary/15 dark:bg-primary/20 px-3 py-2 text-xs text-foreground dark:text-muted-foreground">
                     <span className="font-semibold">Diagnostic visit</span> — no markup is applied to diagnostic fees.
                   </div>
                 ) : markupContext === 'locked' ? (

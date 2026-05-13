@@ -14,9 +14,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Subcontractor {
   uid: string;
   email: string;
@@ -46,7 +44,7 @@ interface PerformanceBadge {
 
 function getPerformanceBadges(sub: Subcontractor): PerformanceBadge[] {
   const badges: PerformanceBadge[] = [];
-  if ((sub.speedScore ?? 0) >= 80) badges.push({ label: 'Top Speed', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300', icon: Zap });
+  if ((sub.speedScore ?? 0) >= 80) badges.push({ label: 'Top Speed', color: 'bg-primary/15 text-foreground dark:bg-primary/25 dark:text-primary', icon: Zap });
   if ((sub.qualityScore ?? 0) >= 80) badges.push({ label: 'Top Quality', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300', icon: Star });
   if ((sub.priceScore ?? 0) >= 75) badges.push({ label: 'Cost-Effective', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300', icon: DollarSign });
   if ((sub.engagementScore ?? 0) >= 80) badges.push({ label: 'Top Engagement', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300', icon: ThumbsUp });
@@ -168,7 +166,7 @@ function ProviderCard({
         {/* Right: performance scores */}
         <div className="space-y-1.5">
           <p className="text-xs font-medium text-muted-foreground mb-2">Performance Score Percentiles</p>
-          <PercentileBar label="Speed" value={sub.speedScore ?? 50} color="bg-blue-500" />
+          <PercentileBar label="Speed" value={sub.speedScore ?? 50} color="bg-primary/100" />
           <PercentileBar label="Quality" value={sub.qualityScore ?? 50} color="bg-green-500" />
           <PercentileBar label="Price" value={sub.priceScore ?? 50} color="bg-yellow-500" />
           <PercentileBar label="Engagement" value={sub.engagementScore ?? 50} color="bg-purple-500" />
@@ -406,19 +404,15 @@ export default function ProviderSearchPage() {
   const compareSubs = subcontractors.filter(s => compareIds.includes(s.uid));
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero
-          title="Provider Search"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+    <PortalListPage
+      title="Provider Search"
+      subtitle="Find and invite the best service providers for your facilities."
+      icon={Users}
+    >
+      <div className="mx-auto max-w-7xl p-4 sm:p-6">
         {/* Hero Header */}
-        <div className="relative rounded-2xl overflow-hidden bg-gradient-to-r from-primary/90 to-primary mb-6 sm:mb-8 p-5 sm:p-8 text-white">
+        <div className="relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-r from-primary/90 to-primary p-5 text-white sm:mb-8 sm:p-8">
           <div className="relative z-10">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Industry professionals, meet the right providers.</h1>
-            <p className="text-white/80 mb-6">Find and invite the best service providers for your facilities.</p>
 
             {/* Search Bar */}
             <div className="flex flex-col sm:flex-row gap-3 max-w-2xl">
@@ -569,7 +563,6 @@ export default function ProviderSearchPage() {
         {/* Compare Panel */}
         <ComparePanel subs={compareSubs} onClose={() => setCompareIds([])} />
       </div>
-          </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

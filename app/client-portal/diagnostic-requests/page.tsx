@@ -220,7 +220,7 @@ export default function ClientDiagnosticRequests() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      sent_to_client: 'bg-blue-100 text-blue-800',
+      sent_to_client: 'bg-primary/15 text-foreground',
       accepted: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
     };
@@ -309,7 +309,7 @@ export default function ClientDiagnosticRequests() {
                         <Link
                           href={`/client-portal/work-orders/${quote.workOrderId}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                          className="text-primary hover:text-foreground hover:underline font-medium"
                         >
                           WO: {quote.workOrderNumber}
                         </Link>
@@ -325,7 +325,7 @@ export default function ClientDiagnosticRequests() {
                       </span>
                     )}
                     {quote.proposedServiceDate && (
-                      <span className="flex items-center gap-1 text-blue-700">
+                      <span className="flex items-center gap-1 text-primary">
                         <Calendar className="h-3.5 w-3.5 shrink-0" />
                         Diagnostic Service Date Time: {quote.proposedServiceDate?.toDate?.().toLocaleDateString() ||
                           new Date(quote.proposedServiceDate).toLocaleDateString()}

@@ -20,9 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import ViewControls from '@/components/view-controls';
 import { useViewControls } from '@/contexts/view-controls-context';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 export default function RecurringWorkOrdersManagement() {
   const [recurringWorkOrders, setRecurringWorkOrders] = useState<RecurringWorkOrder[]>([]);
   const [executionsByRWO, setExecutionsByRWO] = useState<Record<string, RecurringWorkOrderExecution[]>>({});
@@ -497,45 +495,39 @@ export default function RecurringWorkOrdersManagement() {
   };
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero
-          title="Recurring Work Orders"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Recurring Work Orders</h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">Manage recurring work orders and their schedules</p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="w-full sm:w-auto" asChild>
-              <Link href="/admin-portal/recurring-work-orders/location-map">
-                <MapPin className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Location Map</span>
-                <span className="sm:hidden">Map</span>
-              </Link>
-            </Button>
-            <Button 
-              onClick={() => setShowImportModal(true)}
-              variant="outline"
-              className="w-full sm:w-auto"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Import from CSV/Excel</span>
-              <span className="sm:hidden">Import</span>
-            </Button>
-            <Button className="w-full sm:w-auto" asChild>
-              <Link href="/admin-portal/recurring-work-orders/create">
-                <Plus className="h-4 w-4 mr-2" />
-                <span className="hidden sm:inline">Create Recurring Work Order</span>
-                <span className="sm:hidden">Create</span>
-              </Link>
-            </Button>
-          </div>
+    <PortalListPage
+      title="Recurring Work Orders"
+      subtitle="Manage recurring work orders and their schedules"
+      icon={RotateCcw}
+      heroAction={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" className="w-full sm:w-auto" asChild>
+            <Link href="/admin-portal/recurring-work-orders/location-map">
+              <MapPin className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Location Map</span>
+              <span className="sm:hidden">Map</span>
+            </Link>
+          </Button>
+          <Button
+            onClick={() => setShowImportModal(true)}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Import from CSV/Excel</span>
+            <span className="sm:hidden">Import</span>
+          </Button>
+          <Button className="w-full sm:w-auto" asChild>
+            <Link href="/admin-portal/recurring-work-orders/create">
+              <Plus className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Create Recurring Work Order</span>
+              <span className="sm:hidden">Create</span>
+            </Link>
+          </Button>
         </div>
+      }
+    >
+      <div className="space-y-6">
 
         {/* Search Bar */}
         <div className="relative">
@@ -763,7 +755,7 @@ export default function RecurringWorkOrdersManagement() {
                         if (!nextDate) return 'Not scheduled';
                         const isToday = nextDate.toDateString() === new Date().toDateString();
                         return (
-                          <span className={isToday ? 'text-blue-600 font-medium' : ''}>
+                          <span className={isToday ? 'text-primary font-medium' : ''}>
                             {nextDate.toLocaleDateString()}
                             {isToday && <span className="ml-1 text-xs">(Today)</span>}
                           </span>
@@ -857,7 +849,7 @@ export default function RecurringWorkOrdersManagement() {
                       if (!nextDate) return 'Not scheduled';
                       const isToday = nextDate.toDateString() === new Date().toDateString();
                       return (
-                        <span className={isToday ? 'text-blue-600' : ''}>
+                        <span className={isToday ? 'text-primary' : ''}>
                           {nextDate.toLocaleDateString()}{isToday && ' (Today)'}
                         </span>
                       );
@@ -946,7 +938,6 @@ export default function RecurringWorkOrdersManagement() {
           }}
         />
       </div>
-          </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

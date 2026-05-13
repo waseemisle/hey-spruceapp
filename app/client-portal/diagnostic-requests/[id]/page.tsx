@@ -14,9 +14,7 @@ import { ArrowLeft, Stethoscope, Check, X, Calendar, DollarSign, User, FileText,
 import Link from 'next/link';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface DiagnosticQuote {
   id: string;
   workOrderId?: string;
@@ -195,18 +193,11 @@ export default function ClientDiagnosticRequestDetail() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600" />
+      <PortalListPage title="Diagnostic request" subtitle="Loading…" icon={Stethoscope}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-indigo-600" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -237,7 +228,7 @@ export default function ClientDiagnosticRequestDetail() {
   };
   const statusColors: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800',
-    sent_to_client: 'bg-blue-100 text-blue-800',
+    sent_to_client: 'bg-primary/15 text-foreground',
     accepted: 'bg-green-100 text-green-800',
     rejected: 'bg-red-100 text-red-800',
   };
@@ -272,7 +263,7 @@ export default function ClientDiagnosticRequestDetail() {
                 quote.workOrderId ? (
                   <Link
                     href={`/client-portal/work-orders/${quote.workOrderId}`}
-                    className="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                    className="text-sm text-primary hover:text-foreground hover:underline font-medium"
                   >
                     WO #{quote.workOrderNumber}
                   </Link>

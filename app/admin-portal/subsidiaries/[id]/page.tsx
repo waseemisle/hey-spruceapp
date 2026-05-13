@@ -6,12 +6,10 @@ import Link from 'next/link';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Company {
@@ -88,7 +86,7 @@ function getInitials(name: string): string {
 function InvoiceStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     draft:   { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
-    sent:    { label: 'Invoiced',     cls: 'bg-blue-100 text-blue-700' },
+    sent:    { label: 'Invoiced',     cls: 'bg-primary/15 text-primary' },
     paid:    { label: 'Paid',         cls: 'bg-green-100 text-green-700' },
     overdue: { label: 'Overdue',      cls: 'bg-red-100 text-red-700' },
     none:    { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
@@ -240,18 +238,11 @@ export default function CompanyDetailPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Subsidiary" subtitle="Loading…" icon={Building2}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -326,7 +317,7 @@ export default function CompanyDetailPage() {
               label: 'Total Jobs',
               value: stats.totalJobs,
               sub: 'All time',
-              top: 'bg-blue-500',
+              top: 'bg-primary/100',
             },
             {
               label: 'Outstanding',
@@ -420,7 +411,7 @@ export default function CompanyDetailPage() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
                     activeTab === tab.key
-                      ? 'bg-card text-blue-600 shadow-sm'
+                      ? 'bg-card text-primary shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -430,7 +421,7 @@ export default function CompanyDetailPage() {
                       activeTab === tab.key
                         ? tab.danger
                           ? 'bg-red-100 text-red-600'
-                          : 'bg-blue-100 text-blue-600'
+                          : 'bg-primary/15 text-primary'
                         : tab.danger
                         ? 'bg-red-50 text-red-500'
                         : 'bg-muted text-muted-foreground'
@@ -472,7 +463,7 @@ export default function CompanyDetailPage() {
                 ) : (
                   filtered.map((wo) => (
                     <tr key={wo.id} className="hover:bg-muted transition-colors">
-                      <td className="px-4 py-3.5 font-semibold text-blue-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 font-semibold text-primary whitespace-nowrap">
                         {wo.workOrderNumber || wo.id.slice(0, 8).toUpperCase()}
                       </td>
                       <td className="px-4 py-3.5 text-foreground max-w-[140px] truncate">

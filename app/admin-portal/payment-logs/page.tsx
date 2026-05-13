@@ -1,8 +1,6 @@
 'use client';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 /**
  * Admin → Payment Logs
  *
@@ -77,7 +75,7 @@ const StatusPill = ({ status }: { status: PaymentLog['status'] }) => {
       case 'succeeded': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'failed':    return 'bg-red-50 text-red-700 border-red-200';
       case 'requires_action': return 'bg-amber-50 text-amber-700 border-amber-200';
-      case 'processing': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'processing': return 'bg-primary/10 text-primary border-primary/20';
       case 'refunded':  return 'bg-violet-50 text-violet-700 border-violet-200';
       case 'disputed':  return 'bg-orange-50 text-orange-700 border-orange-200';
       case 'canceled':  return 'bg-muted text-muted-foreground border-border';
@@ -211,31 +209,18 @@ export default function PaymentLogsListPage() {
 
   return (
     <>
-      <PageContainer>
-        <PortalHero
-          title="Payment Logs"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Payment Logs</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Every Stripe payment event + server-initiated charge. Click a row for full payload,
-              record-mutation cascade, and failure analysis.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={handleBackfill}
-            disabled={backfilling}
-          >
+      <PortalListPage
+        title="Payment Logs"
+        subtitle="Every Stripe payment event plus server-initiated charges. Open a row for payload, linked records, and failure analysis."
+        icon={CreditCard}
+        heroAction={
+          <Button variant="outline" onClick={handleBackfill} disabled={backfilling}>
             {backfilling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
             {backfilling ? 'Backfilling…' : 'Backfill 90 days'}
           </Button>
-        </div>
-
+        }
+      >
+      <div className="space-y-6">
         <div className="flex flex-wrap items-center gap-2 border-b border-border">
           {STATUS_FILTERS.map(f => (
             <button
@@ -243,7 +228,7 @@ export default function PaymentLogsListPage() {
               onClick={() => setStatusFilter(f.key)}
               className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
                 statusFilter === f.key
-                  ? 'border-blue-600 text-blue-700'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -297,7 +282,7 @@ export default function PaymentLogsListPage() {
               const ts = toDate(log.stripeCreatedAt) || toDate(log.createdAt);
               return (
                 <Link key={log.id} href={`/admin-portal/payment-logs/${log.id}`} className="block">
-                  <Card className="hover:border-blue-300 transition-colors">
+                  <Card className="hover:border-primary/25 transition-colors">
                     <CardContent className="p-3">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
@@ -306,7 +291,7 @@ export default function PaymentLogsListPage() {
                             <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                               {log.stripeObjectType.replace('_', ' ')}
                             </span>
-                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                            <span className="px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                               {SOURCE_LABELS[log.source as SourceKey] || log.source}
                             </span>
                             {log.rawEventType && (
@@ -356,7 +341,7 @@ export default function PaymentLogsListPage() {
           </div>
         )}
       </div>
-          </PageContainer>
+      </PortalListPage>
     </>
   );
 }

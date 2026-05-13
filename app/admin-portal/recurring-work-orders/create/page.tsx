@@ -130,10 +130,10 @@ function SearchableSelect({ options, value, onChange, placeholder = 'Select...',
                 <li
                   key={opt.value}
                   onMouseDown={() => handleSelect(opt.value)}
-                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 ${opt.value === value ? 'bg-blue-50 text-blue-700 font-medium' : 'text-foreground'}`}
+                  className={`flex items-center justify-between px-3 py-2 text-sm cursor-pointer hover:bg-primary/10 ${opt.value === value ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
                 >
                   {opt.label}
-                  {opt.value === value && <Check className="h-3.5 w-3.5 text-blue-600" />}
+                  {opt.value === value && <Check className="h-3.5 w-3.5 text-primary" />}
                 </li>
               ))
             )}
@@ -823,7 +823,7 @@ export default function CreateRecurringWorkOrder() {
                           disabled={isDisabled}
                           className={`h-9 w-full rounded-md text-sm font-medium border transition-colors ${
                             isSelected
-                              ? 'bg-blue-600 text-white border-blue-600'
+                              ? 'bg-primary text-white border-primary'
                               : isDisabled
                               ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed opacity-40'
                               : 'border-border hover:bg-muted text-foreground'
@@ -859,7 +859,7 @@ export default function CreateRecurringWorkOrder() {
                           key={day}
                           className={`flex items-center gap-2 px-3 py-2 rounded-md border cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-blue-50 border-blue-400 text-blue-700'
+                              ? 'bg-primary/10 border-primary/40 text-primary'
                               : isDisabled
                               ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed opacity-50'
                               : 'border-border hover:bg-muted text-foreground'
@@ -870,7 +870,7 @@ export default function CreateRecurringWorkOrder() {
                             checked={isSelected}
                             onChange={() => !isDisabled && toggleDayOfWeek(index)}
                             disabled={isDisabled}
-                            className="accent-blue-600"
+                            className="accent-primary"
                           />
                           <span className="text-sm font-medium">{day}</span>
                         </label>
@@ -925,9 +925,9 @@ export default function CreateRecurringWorkOrder() {
                     }
                   }
                   return upcoming.length > 0 ? (
-                    <div className="mt-2 p-2 bg-blue-50 rounded-md">
-                      <p className="text-xs font-semibold text-blue-700 mb-1">First 5 upcoming occurrences:</p>
-                      <ul className="text-xs text-blue-600 space-y-0.5">
+                    <div className="mt-2 p-2 bg-primary/10 rounded-md">
+                      <p className="text-xs font-semibold text-primary mb-1">First 5 upcoming occurrences:</p>
+                      <ul className="text-xs text-primary space-y-0.5">
                         {upcoming.map((d, i) => <li key={i}>• {d}</li>)}
                       </ul>
                     </div>
@@ -955,9 +955,9 @@ export default function CreateRecurringWorkOrder() {
                     iters++;
                   }
                   return upcoming.length > 0 ? (
-                    <div className="mt-2 p-2 bg-blue-50 rounded-md">
-                      <p className="text-xs font-semibold text-blue-700 mb-1">First {upcoming.length} upcoming occurrences:</p>
-                      <ul className="text-xs text-blue-600 space-y-0.5">
+                    <div className="mt-2 p-2 bg-primary/10 rounded-md">
+                      <p className="text-xs font-semibold text-primary mb-1">First {upcoming.length} upcoming occurrences:</p>
+                      <ul className="text-xs text-primary space-y-0.5">
                         {upcoming.map((d, i) => <li key={i}>• {d}</li>)}
                       </ul>
                     </div>
@@ -1063,7 +1063,7 @@ export default function CreateRecurringWorkOrder() {
                     />
                     <p className="text-xs text-muted-foreground mt-1">e.g., 1 = 1st of month</p>
                   </div>
-                  <div className="p-3 bg-blue-50 rounded-md text-sm text-blue-700">
+                  <div className="p-3 bg-primary/10 rounded-md text-sm text-primary">
                     Invoices will be sent on the <strong>{formData.invoiceScheduleDayOfMonth}{getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}</strong> of every 2nd month.
                   </div>
                 </div>

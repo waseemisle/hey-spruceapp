@@ -40,9 +40,7 @@ import {
 } from 'lucide-react';
 import { SYNC_COLLECTIONS } from '@/lib/sandbox-config';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface CollectionStat {
   copied: number;
   deleted: number;
@@ -84,7 +82,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === 'running') {
     return (
-      <Badge className="bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800">
+      <Badge className="bg-primary/15 text-foreground border border-primary/20 dark:bg-primary/25 dark:text-primary dark:border-primary/30">
         <Loader2 className="h-3 w-3 mr-1 animate-spin" />
         Running
       </Badge>
@@ -297,48 +295,32 @@ export default function SandboxRefreshPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Sandbox Refresh"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
+      <PortalListPage title="Sandbox Refresh" subtitle="Loading…" icon={Database}>
+        <div className="flex h-64 items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
-      <div className="p-6 max-w-5xl mx-auto space-y-6">
-
-        {/* Page header */}
-        <div className="flex items-start gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <Database className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold">Sandbox Refresh</h1>
-              <Badge
-                className={
-                  isStaging
-                    ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
-                    : 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
-                }
-              >
-                {isStaging ? 'Sandbox' : 'Production'}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground text-sm mt-0.5">
-              Copy all production data to the sandbox — one-way, on demand. Like NetSuite&apos;s sandbox refresh.
-            </p>
-          </div>
-        </div>
+    <PortalListPage
+      title="Sandbox Refresh"
+      subtitle="Copy all production data to the sandbox — one-way, on demand. Like NetSuite&apos;s sandbox refresh."
+      icon={Database}
+      heroAction={
+        <Badge
+          className={
+            isStaging
+              ? 'bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
+              : 'bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+          }
+        >
+          {isStaging ? 'Sandbox' : 'Production'}
+        </Badge>
+      }
+    >
+      <div className="mx-auto max-w-5xl space-y-6 p-6">
 
         {/* Staging notice */}
         {isStaging ? (
@@ -454,10 +436,10 @@ export default function SandboxRefreshPage() {
 
             {/* Real-time progress card */}
             {isRefreshing && currentJob && (
-              <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/10">
+              <Card className="border-primary/20 dark:border-primary/30 bg-primary/10 dark:bg-primary/15">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
                     Refresh in progress
                   </CardTitle>
                 </CardHeader>
@@ -471,7 +453,7 @@ export default function SandboxRefreshPage() {
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-700 ease-out"
+                      className="h-full bg-primary/100 rounded-full transition-all duration-700 ease-out"
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
@@ -597,6 +579,6 @@ export default function SandboxRefreshPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </PortalListPage>
   );
 }

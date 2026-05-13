@@ -97,18 +97,18 @@ const PERMISSION_DEFS: {
 ];
 
 const CATEGORY_META: Record<PermCategory, { label: string; icon: typeof Shield; ringClass: string; pillClass: string }> = {
-  visibility: { label: 'Visibility & Access', icon: Eye,        ringClass: 'ring-blue-200 dark:ring-blue-900/50',     pillClass: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60' },
+  visibility: { label: 'Visibility & Access', icon: Eye,        ringClass: 'ring-primary/20 dark:ring-primary/25',     pillClass: 'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30' },
   creation:   { label: 'Create & Manage',     icon: PlusCircle, ringClass: 'ring-emerald-200 dark:ring-emerald-900/50', pillClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60' },
   workflow:   { label: 'Workflow Actions',    icon: Workflow,   ringClass: 'ring-purple-200 dark:ring-purple-900/50', pillClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900/60' },
 };
 
 const AVATAR_COLORS = [
-  'from-blue-500 to-indigo-600',
+  'from-primary to-violet-600',
   'from-purple-500 to-fuchsia-600',
   'from-emerald-500 to-teal-600',
   'from-orange-500 to-rose-600',
   'from-rose-500 to-pink-600',
-  'from-cyan-500 to-blue-600',
+  'from-cyan-500 to-primary',
 ];
 
 function getInitials(name: string): string {
@@ -164,7 +164,7 @@ function Switch({
       <span
         className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 ${
           checked
-            ? 'bg-blue-600 dark:bg-blue-500'
+            ? 'bg-primary dark:bg-primary'
             : 'bg-muted border border-border'
         }`}
       >
@@ -489,13 +489,13 @@ export default function CompaniesPermissions() {
     <>
       <PageContainer>
         {/* Hero Header — gradient panel with icon */}
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-blue-50 via-card to-purple-50/60 dark:from-blue-950/30 dark:via-card dark:to-purple-950/20">
-          <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-blue-200/30 dark:bg-blue-900/20 blur-3xl pointer-events-none" />
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-violet-500/10 dark:from-primary/15 dark:via-card dark:to-purple-950/20">
+          <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-primary/20 dark:bg-primary/15 blur-3xl pointer-events-none" />
           <div className="absolute -bottom-16 -left-12 h-40 w-40 rounded-full bg-purple-200/30 dark:bg-purple-900/20 blur-3xl pointer-events-none" />
           <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-start gap-4">
               <div className="rounded-xl bg-card border border-border shadow-sm p-3 flex-shrink-0">
-                <ShieldCheck className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                <ShieldCheck className="h-6 w-6 text-primary dark:text-primary" />
               </div>
               <div className="min-w-0">
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
@@ -577,13 +577,13 @@ export default function CompaniesPermissions() {
                         }}
                         className={`w-full text-left rounded-xl px-3 py-2.5 flex items-center gap-3 transition-all ${
                           isSelected
-                            ? 'bg-blue-50 dark:bg-blue-950/30 ring-1 ring-blue-200 dark:ring-blue-900/60 shadow-sm'
+                            ? 'bg-primary/10 dark:bg-primary/15 ring-1 ring-primary/20 dark:ring-primary/30 shadow-sm'
                             : 'hover:bg-muted/60'
                         }`}
                       >
                         <CompanyAvatar company={company} size={36} />
                         <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-semibold truncate ${isSelected ? 'text-blue-900 dark:text-blue-100' : 'text-foreground'}`}>
+                          <p className={`text-sm font-semibold truncate ${isSelected ? 'text-foreground dark:text-foreground' : 'text-foreground'}`}>
                             {company.name}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
@@ -597,7 +597,7 @@ export default function CompaniesPermissions() {
                             )}
                           </div>
                         </div>
-                        <ChevronRight className={`h-4 w-4 flex-shrink-0 transition-transform ${isSelected ? 'text-blue-600 dark:text-blue-400 translate-x-0.5' : 'text-muted-foreground/40'}`} />
+                        <ChevronRight className={`h-4 w-4 flex-shrink-0 transition-transform ${isSelected ? 'text-primary dark:text-primary translate-x-0.5' : 'text-muted-foreground/40'}`} />
                       </button>
                     );
                   })
@@ -684,20 +684,20 @@ export default function CompaniesPermissions() {
                           key={id}
                           onClick={() => setActiveTab(id)}
                           className={`relative inline-flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${
-                            active ? 'text-blue-700 dark:text-blue-300' : 'text-muted-foreground hover:text-foreground'
+                            active ? 'text-primary dark:text-primary' : 'text-muted-foreground hover:text-foreground'
                           }`}
                         >
                           <Icon className="h-4 w-4" />
                           {label}
                           <span className={`text-xs px-1.5 py-0.5 rounded-full border ${
                             active
-                              ? 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-900/60'
+                              ? 'bg-primary/15 text-primary border-primary/20 dark:bg-primary/25 dark:text-primary dark:border-primary/30'
                               : 'bg-card text-muted-foreground border-border'
                           }`}>
                             {count}
                           </span>
                           {active && (
-                            <span className="absolute inset-x-3 -bottom-px h-0.5 bg-blue-600 dark:bg-blue-400 rounded-full" />
+                            <span className="absolute inset-x-3 -bottom-px h-0.5 bg-primary dark:bg-primary/50 rounded-full" />
                           )}
                         </button>
                       );
@@ -827,7 +827,7 @@ function SettingsTab(props: {
             className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
               allStates
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60'
-                : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60'
+                : 'bg-primary/10 text-primary border border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30'
             }`}
           >
             {allStates ? 'All states' : `${companyAllowedStates.length} state${companyAllowedStates.length === 1 ? '' : 's'}`}
@@ -866,8 +866,8 @@ function SettingsTab(props: {
                 onClick={() => onToggleState(s.code)}
                 className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-xs transition-all ${
                   checked
-                    ? 'bg-blue-600 border-blue-600 text-white shadow-sm hover:bg-blue-700'
-                    : 'bg-card border-border text-foreground hover:bg-muted/60 hover:border-blue-200'
+                    ? 'bg-primary border-primary text-white shadow-sm hover:bg-primary/90'
+                    : 'bg-card border-border text-foreground hover:bg-muted/60 hover:border-primary/20'
                 }`}
               >
                 <span className="font-mono font-semibold">{s.code}</span>
@@ -1037,18 +1037,18 @@ function StatusPill({ on }: { on: boolean }) {
     <span
       className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${
         on
-          ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60'
+          ? 'bg-primary/10 text-primary border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30'
           : 'bg-muted text-muted-foreground border-border'
       }`}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-blue-500' : 'bg-muted-foreground/40'}`} />
+      <span className={`h-1.5 w-1.5 rounded-full ${on ? 'bg-primary/100' : 'bg-muted-foreground/40'}`} />
       {on ? 'Enabled' : 'Disabled'}
     </span>
   );
 }
 
 const ACCENT: Record<'blue' | 'amber' | 'purple' | 'emerald' | 'indigo', { stripe: string; iconBg: string; iconText: string }> = {
-  blue:    { stripe: 'before:bg-blue-500',    iconBg: 'bg-blue-50 dark:bg-blue-950/40',       iconText: 'text-blue-600 dark:text-blue-400' },
+  blue:    { stripe: 'before:bg-primary/100',    iconBg: 'bg-primary/10 dark:bg-primary/20',       iconText: 'text-primary dark:text-primary' },
   amber:   { stripe: 'before:bg-amber-500',   iconBg: 'bg-amber-50 dark:bg-amber-950/40',     iconText: 'text-amber-600 dark:text-amber-400' },
   purple:  { stripe: 'before:bg-purple-500',  iconBg: 'bg-purple-50 dark:bg-purple-950/40',   iconText: 'text-purple-600 dark:text-purple-400' },
   emerald: { stripe: 'before:bg-emerald-500', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40', iconText: 'text-emerald-600 dark:text-emerald-400' },
@@ -1161,7 +1161,7 @@ function ClientsTab({
                       ? 'bg-muted text-muted-foreground'
                       : enabled === totalPossible
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60'
-                      : 'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900/60'
+                      : 'bg-primary/10 text-primary border border-primary/20 dark:bg-primary/20 dark:text-primary dark:border-primary/30'
                   }`}>
                     {enabled}/{totalPossible} active
                   </span>
@@ -1172,7 +1172,7 @@ function ClientsTab({
                           ? 'bg-muted-foreground/20'
                           : enabled === totalPossible
                           ? 'bg-emerald-500'
-                          : 'bg-blue-500'
+                          : 'bg-primary/100'
                       }`}
                       style={{ width: `${ratio}%` }}
                     />
@@ -1213,8 +1213,8 @@ function ClientsTab({
                                 htmlFor={`${perm.key}-${client.id}`}
                                 className={`group cursor-pointer rounded-xl border p-3 flex items-start gap-3 transition-all ${
                                   isEnabled
-                                    ? 'bg-blue-50/40 dark:bg-blue-950/20 border-blue-200 dark:border-blue-900/60 ring-1 ring-blue-100 dark:ring-blue-900/40'
-                                    : 'bg-card border-border hover:border-blue-200 hover:bg-muted/40'
+                                    ? 'bg-primary/10 dark:bg-primary/20 border-primary/20 dark:border-primary/30 ring-1 ring-primary/15 dark:ring-primary/25'
+                                    : 'bg-card border-border hover:border-primary/20 hover:bg-muted/40'
                                 }`}
                               >
                                 <Checkbox
@@ -1227,7 +1227,7 @@ function ClientsTab({
                                 />
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
-                                    <PermIcon className={`h-3.5 w-3.5 flex-shrink-0 ${isEnabled ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+                                    <PermIcon className={`h-3.5 w-3.5 flex-shrink-0 ${isEnabled ? 'text-primary dark:text-primary' : 'text-muted-foreground'}`} />
                                     <span className={`text-sm font-medium ${isEnabled ? 'text-foreground' : 'text-foreground'}`}>
                                       {perm.label}
                                     </span>

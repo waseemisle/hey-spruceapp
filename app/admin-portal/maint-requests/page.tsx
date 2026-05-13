@@ -13,9 +13,7 @@ import { Wrench, User, MapPin, AlertCircle, Search, Eye, X, Trash2, Key, Copy, P
 import { toast } from 'sonner';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 const MAINT_REQUEST_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'in-progress', label: 'In Progress' },
@@ -274,7 +272,7 @@ export default function MaintRequestsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'text-yellow-600 bg-yellow-50';
-      case 'in-progress': return 'text-blue-600 bg-blue-50';
+      case 'in-progress': return 'text-primary bg-primary/10';
       case 'completed': return 'text-green-600 bg-green-50';
       default: return 'text-muted-foreground bg-muted';
     }
@@ -361,24 +359,18 @@ export default function MaintRequestsPage() {
 
   return (
     <>
-      <PageContainer>
-        <PortalHero
-          title="Maint Requests"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Maintenance Requests</h1>
-            <p className="text-muted-foreground mt-2">View and manage incoming maintenance requests</p>
-          </div>
+      <PortalListPage
+        title="Maintenance Requests"
+        subtitle="View and manage incoming maintenance requests."
+        icon={Wrench}
+        heroAction={
           <Button onClick={() => setShowTokenModal(true)} className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             API Tokens
           </Button>
-        </div>
-
+        }
+      >
+      <div className="space-y-6">
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -670,7 +662,7 @@ export default function MaintRequestsPage() {
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
-                                  <Key className="h-4 w-4 text-blue-600" />
+                                  <Key className="h-4 w-4 text-primary" />
                                   <span className="font-semibold">{token.name}</span>
                                 </div>
                                 <div className="mt-2 space-y-1 text-sm text-muted-foreground">
@@ -708,17 +700,17 @@ export default function MaintRequestsPage() {
                 </div>
 
                 {/* Usage Instructions */}
-                <Card className="bg-blue-50 border-blue-200">
+                <Card className="bg-primary/10 border-primary/20">
                   <CardHeader>
-                    <CardTitle className="text-lg text-blue-900">How to Use API Tokens</CardTitle>
+                    <CardTitle className="text-lg text-foreground">How to Use API Tokens</CardTitle>
                   </CardHeader>
-                  <CardContent className="text-sm text-blue-800 space-y-2">
+                  <CardContent className="text-sm text-foreground space-y-2">
                     <p>Include the token in the Authorization header of your API requests:</p>
-                    <pre className="bg-blue-900 text-blue-100 p-3 rounded-lg overflow-x-auto">
+                    <pre className="bg-zinc-900 text-zinc-100 p-3 rounded-lg overflow-x-auto">
 {`Authorization: Bearer YOUR_TOKEN_HERE`}
                     </pre>
                     <p className="mt-3">Example using curl:</p>
-                    <pre className="bg-blue-900 text-blue-100 p-3 rounded-lg overflow-x-auto text-xs">
+                    <pre className="bg-zinc-900 text-zinc-100 p-3 rounded-lg overflow-x-auto text-xs">
 {`curl -H "Authorization: Bearer YOUR_TOKEN_HERE" \\
   https://groundopscos.vercel.app/api/maint-requests`}
                     </pre>
@@ -729,7 +721,7 @@ export default function MaintRequestsPage() {
           </div>
         )}
       </div>
-          </PageContainer>
+      </PortalListPage>
     </>
   );
 }

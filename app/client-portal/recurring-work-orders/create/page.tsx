@@ -516,7 +516,7 @@ export default function ClientCreateRecurringWorkOrder() {
                           disabled={isDisabled}
                           className={`h-8 rounded-md text-xs font-medium border transition-colors ${
                             isSelected
-                              ? 'bg-blue-600 text-white border-blue-600'
+                              ? 'bg-primary text-white border-primary'
                               : isDisabled
                               ? 'border-border bg-muted/50 text-muted-foreground cursor-not-allowed opacity-40'
                               : 'border-border hover:bg-muted text-foreground'
@@ -551,7 +551,7 @@ export default function ClientCreateRecurringWorkOrder() {
                           disabled={isDisabled}
                           className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                             isSelected
-                              ? 'bg-blue-600 text-white border-blue-600'
+                              ? 'bg-primary text-white border-primary'
                               : isDisabled
                               ? 'bg-muted/50 text-muted-foreground border-border cursor-not-allowed opacity-50'
                               : 'bg-card text-foreground border-border hover:bg-muted'

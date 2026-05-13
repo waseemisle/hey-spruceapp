@@ -11,9 +11,7 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Chat {
   id: string;
   participants: string[];
@@ -143,18 +141,11 @@ export default function ClientMessages() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Messages"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Messages" subtitle="Loading…" icon={MessageSquare}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -195,7 +186,7 @@ export default function ClientMessages() {
                         key={chat.id}
                         onClick={() => setSelectedChat(chat.id)}
                         className={`p-3 rounded-lg cursor-pointer hover:bg-muted ${
-                          selectedChat === chat.id ? 'bg-blue-50 border-2 border-blue-500' : 'bg-muted'
+                          selectedChat === chat.id ? 'bg-primary/10 border-2 border-primary' : 'bg-muted'
                         }`}
                       >
                         <div className="font-semibold text-sm">{otherParticipant?.name || 'Admin'}</div>
@@ -249,7 +240,7 @@ export default function ClientMessages() {
                         <div
                           className={`max-w-xs px-4 py-2 rounded-lg ${
                             message.senderId === auth.currentUser?.uid
-                              ? 'bg-blue-600 text-white'
+                              ? 'bg-primary text-white'
                               : 'bg-card text-foreground'
                           }`}
                         >

@@ -18,9 +18,7 @@ import { formatMoney } from '@/lib/money';
 import WorkOrderSystemInfo from '@/components/work-order-system-info';
 import RecurringWorkOrderEditForm from '@/components/recurring-work-order-edit-form';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 export default function RecurringWorkOrderDetails({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [recurringWorkOrder, setRecurringWorkOrder] = useState<RecurringWorkOrder | null>(null);
@@ -400,8 +398,8 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
       case 'pending': return 'text-yellow-600 bg-yellow-50';
       case 'approved': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
-      case 'bidding': return 'text-blue-600 bg-blue-50';
-      case 'quotes_received': return 'text-blue-600 bg-blue-50';
+      case 'bidding': return 'text-primary bg-primary/10';
+      case 'quotes_received': return 'text-primary bg-primary/10';
       case 'to_be_started': return 'text-orange-600 bg-orange-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
@@ -657,18 +655,11 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Recurring work order" subtitle="Loading…" icon={RotateCcw}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -802,7 +793,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                   <div>
                     <span className="font-semibold">Pre-assigned Subcontractor:</span>
                     <span className="ml-2">{(recurringWorkOrder as any).preAssignedSubcontractorName}</span>
-                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                       Auto-shared for bidding on every execution
                     </span>
                   </div>
@@ -911,7 +902,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                           <span className={`ml-2 font-mono text-sm px-2 py-0.5 rounded ${
                             countdown === 'Now'
                               ? 'bg-green-100 text-green-700 animate-pulse'
-                              : 'bg-blue-50 text-blue-700'
+                              : 'bg-primary/10 text-primary'
                           }`}>
                             {countdown}
                           </span>
@@ -987,7 +978,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                           <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" /> Pending ({pastExecutions.filter(e => e.status === 'pending').length})
                         </span>
                         <span className="flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Upcoming ({upcomingExecutions.length})
+                          <span className="w-2 h-2 rounded-full bg-primary/100 inline-block" /> Upcoming ({upcomingExecutions.length})
                         </span>
                         {pastExecutions.filter(e => e.status === 'failed').length > 0 && (
                           <span className="flex items-center gap-1">
@@ -1044,7 +1035,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                   {(slot.execution as any)?.triggeredBy && (
                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                                       (slot.execution as any).triggeredBy === 'cron'
-                                        ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                                        ? 'bg-primary/10 text-primary border border-primary/20'
                                         : 'bg-purple-50 text-purple-600 border border-purple-200'
                                     }`}>
                                       {(slot.execution as any).triggeredBy === 'cron' ? 'Cron' : 'Manual'}
@@ -1078,7 +1069,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                                   size="sm"
                                   onClick={() => handleGenerateWorkOrder(slot.execution!.id, slot.execution!.executionNumber)}
                                   disabled={submitting}
-                                  className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                                  className="bg-primary hover:bg-primary/90 text-white text-xs"
                                 >
                                   Generate Work Order
                                 </Button>
@@ -1121,7 +1112,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                               key={slot.executionNumber}
                               className={`flex items-center justify-between p-3 rounded-lg border ${
                                 isToday
-                                  ? 'bg-blue-50 border-blue-300'
+                                  ? 'bg-primary/10 border-primary/25'
                                   : isNext
                                   ? 'bg-indigo-50 border-indigo-200'
                                   : 'bg-muted/60 border-border'
@@ -1129,12 +1120,12 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                             >
                               <div className="flex items-center gap-3">
                                 <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                  isToday ? 'bg-blue-500' : isNext ? 'bg-indigo-500' : 'bg-gray-400'
+                                  isToday ? 'bg-primary/100' : isNext ? 'bg-indigo-500' : 'bg-gray-400'
                                 }`} />
                                 <div>
                                   <div className="font-semibold text-sm">
                                     Execution #{slot.executionNumber}
-                                    {isToday && <span className="ml-2 text-blue-600 text-xs font-normal">(Today)</span>}
+                                    {isToday && <span className="ml-2 text-primary text-xs font-normal">(Today)</span>}
                                     {isNext && !isToday && <span className="ml-2 text-indigo-600 text-xs font-normal">(Next)</span>}
                                   </div>
                                   <div className="text-xs text-muted-foreground">
@@ -1320,7 +1311,7 @@ export default function RecurringWorkOrderDetails({ params }: { params: { id: st
                               size="sm"
                               onClick={() => handleGenerateWorkOrder(execution.id, execution.executionNumber)}
                               disabled={submitting}
-                              className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                              className="bg-primary hover:bg-primary/90 text-white text-xs"
                             >
                               Generate Work Order
                             </Button>

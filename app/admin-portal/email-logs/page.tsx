@@ -27,9 +27,7 @@ import { Mail, ChevronLeft, ChevronRight, Search, X, RefreshCw, CheckCircle2, XC
 import { toast } from 'sonner';
 import { EmailType } from '@/lib/email-logger';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface EmailLog {
   id: string;
   type: EmailType;
@@ -69,7 +67,7 @@ const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
 };
 
 const EMAIL_TYPE_COLORS: Record<EmailType, string> = {
-  invoice: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
+  invoice: 'bg-primary/15 text-foreground dark:bg-zinc-900 dark:text-primary',
   quote: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
   invitation: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
   assignment: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-300',
@@ -411,25 +409,13 @@ export default function EmailLogsPage() {
 
   return (
     <>
-      <PageContainer>
-        <PortalHero
-          title="Email Logs"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <Mail className="h-6 w-6 text-muted-foreground" />
-            <div>
-              <h1 className="text-2xl font-bold">Email Logs</h1>
-              <p className="text-sm text-muted-foreground">All emails sent from the system</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Emails always on — no kill switch */}
-            <span className="bg-muted px-3 py-1 rounded-full text-sm font-medium">
+      <PortalListPage
+        title="Email Logs"
+        subtitle="All emails sent from the system."
+        icon={Mail}
+        heroAction={
+          <>
+            <span className="rounded-full bg-muted px-3 py-1 text-sm font-medium">
               {allLoaded ? `${filtered.length} of ${allLogs.length} emails` : 'Loading...'}
             </span>
             {selectedIds.size > 0 && (
@@ -447,9 +433,10 @@ export default function EmailLogsPage() {
               <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
               {syncing ? 'Refreshing...' : 'Refresh'}
             </Button>
-          </div>
-        </div>
-
+          </>
+        }
+      >
+      <div className="space-y-4">
         {/* Filters */}
         <div className="flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -544,7 +531,7 @@ export default function EmailLogsPage() {
                     return (
                       <tr
                         key={log.id}
-                        className={`border-t border-border hover:bg-muted/30 transition-colors ${selectedIds.has(log.id) ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}
+                        className={`border-t border-border hover:bg-muted/30 transition-colors ${selectedIds.has(log.id) ? 'bg-primary/10 dark:bg-primary/20' : ''}`}
                       >
                         {/* Checkbox */}
                         <td className="px-4 py-3 w-10" onClick={(e) => e.stopPropagation()}>
@@ -735,7 +722,7 @@ export default function EmailLogsPage() {
           )}
         </DialogContent>
       </Dialog>
-          </PageContainer>
+      </PortalListPage>
     </>
   );
 }

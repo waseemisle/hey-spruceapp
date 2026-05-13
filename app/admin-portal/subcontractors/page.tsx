@@ -17,7 +17,7 @@ import {
 import { useViewControls } from '@/contexts/view-controls-context';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 const US_STATES = [
   { value: 'AL', label: 'Alabama' },
   { value: 'AK', label: 'Alaska' },
@@ -95,7 +95,7 @@ interface Category {
 }
 
 const AVATAR_COLORS = [
-  'from-blue-500 to-blue-700',
+  'from-primary to-violet-700',
   'from-purple-500 to-purple-700',
   'from-green-500 to-green-700',
   'from-orange-500 to-orange-700',
@@ -407,29 +407,23 @@ export default function SubcontractorsManagement() {
   };
 
   return (
-    <>
-      <PageContainer>
+    <PortalListPage
+      title="Subcontractors"
+      subtitle="Manage subcontractor registrations and approvals"
+      icon={Wrench}
+      heroAction={
+        <Button onClick={handleOpenCreate} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Create Subcontractor
+        </Button>
+      }
+    >
       <div className="space-y-6">
-
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Wrench className="h-7 w-7 text-blue-600" />
-              Subcontractors
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage subcontractor registrations and approvals</p>
-          </div>
-          <Button onClick={handleOpenCreate} className="gap-2 self-start sm:self-auto">
-            <Plus className="h-4 w-4" />
-            Create Subcontractor
-          </Button>
-        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total', value: stats.total, icon: Users, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+            { label: 'Total', value: stats.total, icon: Users, color: 'text-primary bg-primary/10 border-primary/15' },
             { label: 'Approved', value: stats.approved, icon: BadgeCheck, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
             { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-amber-600 bg-amber-50 border-amber-100' },
             { label: 'Rejected', value: stats.rejected, icon: XCircle, color: 'text-red-600 bg-red-50 border-red-100' },
@@ -529,7 +523,7 @@ export default function SubcontractorsManagement() {
                       <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                       {sub.city && <span>{sub.city}</span>}
                       {sub.state && (
-                        <span className="font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded">
+                        <span className="font-mono font-semibold bg-primary/10 text-primary border border-primary/15 px-1.5 py-0.5 rounded">
                           {sub.state}
                         </span>
                       )}
@@ -539,7 +533,7 @@ export default function SubcontractorsManagement() {
                   {sub.skills && sub.skills.length > 0 && (
                     <div className="flex items-center gap-1 flex-wrap">
                       {sub.skills.slice(0, 3).map((skill, i) => (
-                        <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
+                        <span key={i} className="text-xs bg-primary/10 text-primary border border-primary/15 px-2 py-0.5 rounded-full">{skill}</span>
                       ))}
                       {sub.skills.length > 3 && (
                         <span className="text-xs text-muted-foreground">+{sub.skills.length - 3}</span>
@@ -618,7 +612,7 @@ export default function SubcontractorsManagement() {
                           <div className="flex flex-col gap-0.5">
                             {sub.city && <p className="text-foreground text-sm">{sub.city}</p>}
                             {sub.state && (
-                              <span className="inline-flex items-center self-start text-xs font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded">
+                              <span className="inline-flex items-center self-start text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/15 px-1.5 py-0.5 rounded">
                                 {sub.state}
                               </span>
                             )}
@@ -630,7 +624,7 @@ export default function SubcontractorsManagement() {
                       <td className="px-4 py-3.5 hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {sub.skills && sub.skills.slice(0, 2).map((skill, i) => (
-                            <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-1.5 py-0.5 rounded-full">{skill}</span>
+                            <span key={i} className="text-xs bg-primary/10 text-primary border border-primary/15 px-1.5 py-0.5 rounded-full">{skill}</span>
                           ))}
                           {sub.skills && sub.skills.length > 2 && (
                             <span className="text-xs text-muted-foreground">+{sub.skills.length - 2}</span>
@@ -676,7 +670,7 @@ export default function SubcontractorsManagement() {
                             </Button>
                           )}
                           <Button
-                            size="sm" variant="ghost" className="h-8 w-8 p-0 text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                            size="sm" variant="ghost" className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
                             onClick={() => handleResendApprovalEmail(sub.uid)} disabled={resendingEmail === sub.uid}
                           >
                             <Send className="h-4 w-4" />
@@ -863,7 +857,6 @@ export default function SubcontractorsManagement() {
           </div>
         )}
       </div>
-          </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

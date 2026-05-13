@@ -11,9 +11,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Plus, Edit2, Save, X, Search, Trash2, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Location {
   id: string;
   locationName: string;
@@ -268,51 +266,40 @@ export default function LocationMapPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Location Map"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Location Map" subtitle="Loading…" icon={MapPin}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Location Map</h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-              Map CSV location names to system locations for recurring work order imports
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={handleCreatePredefinedMappings}
-              variant="outline"
-              loading={submitting} disabled={submitting}
-              className="w-full sm:w-auto"
-            >
-              <MapPin className="h-4 w-4 mr-2" />
-              Create Predefined Mappings
-            </Button>
-            <Button
-              onClick={() => handleOpenModal()}
-              className="w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Add Mapping</span>
-              <span className="sm:hidden">Add</span>
-            </Button>
-          </div>
+    <PortalListPage
+      title="Location Map"
+      subtitle="Map CSV location names to system locations for recurring work order imports"
+      icon={MapPin}
+      heroAction={
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={handleCreatePredefinedMappings}
+            variant="outline"
+            loading={submitting}
+            disabled={submitting}
+            className="w-full sm:w-auto"
+          >
+            <MapPin className="h-4 w-4 mr-2" />
+            Create Predefined Mappings
+          </Button>
+          <Button onClick={() => handleOpenModal()} className="w-full sm:w-auto">
+            <Plus className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Add Mapping</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
         </div>
+      }
+    >
+      <div className="space-y-6">
 
         {/* Search Bar */}
         <div className="relative">
@@ -446,6 +433,6 @@ export default function LocationMapPage() {
           </div>
         )}
       </div>
-    </>
+    </PortalListPage>
   );
 }

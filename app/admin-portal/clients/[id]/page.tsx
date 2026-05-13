@@ -11,12 +11,13 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   ArrowLeft, Download, ExternalLink, CreditCard, CheckCircle, AlertCircle,
   Plus, XCircle, MapPin, Star, Trash2, Edit2, Loader2, Mail, X, ShieldCheck,
-  Zap, DollarSign, History, Receipt, FileText, Layers, Building2,
+  Zap, DollarSign, History, Receipt, FileText, Layers, Building2, ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AddPaymentMethodModal from '@/components/billing/add-payment-method-modal';
 
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalDetailGlass } from '@/components/ui/portal-detail-glass';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PaymentMethod {
@@ -199,7 +200,7 @@ function ordinal(n: number): string {
 function InvoiceStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     draft:   { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
-    sent:    { label: 'Invoiced',     cls: 'bg-blue-100 text-blue-700' },
+    sent:    { label: 'Invoiced',     cls: 'bg-primary/15 text-primary' },
     paid:    { label: 'Paid',         cls: 'bg-green-100 text-green-700' },
     overdue: { label: 'Overdue',      cls: 'bg-red-100 text-red-700' },
     none:    { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
@@ -1182,11 +1183,11 @@ export default function ClientDetailPage() {
 
   if (loading) {
     return (
-      <PageContainer>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Client" subtitle="Loading…" icon={Building2}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-      </PageContainer>
+      </PortalListPage>
     );
   }
 
@@ -1231,8 +1232,20 @@ export default function ClientDetailPage() {
     <>
       <div className="space-y-6 max-w-7xl mx-auto pb-10">
 
-        {/* Entity Header */}
-        <div className="bg-card rounded-xl border border-border shadow-sm p-6 flex items-center gap-5">
+        <PortalDetailGlass>
+          <nav
+            className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground"
+            aria-label="Breadcrumb"
+          >
+            <Link href="/admin-portal/clients" className="font-medium transition-colors hover:text-foreground">
+              Clients
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" aria-hidden />
+            <span className="truncate font-medium text-foreground/90">
+              {client.companyName || client.fullName}
+            </span>
+          </nav>
+          <div className="flex flex-wrap items-center gap-5">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, #2563EB, #3B82F6)' }}
@@ -1282,9 +1295,9 @@ export default function ClientDetailPage() {
                 );
               })()}
               {client.stripeSubscriptionId && client.subscriptionStatus === 'active' && client.subscriptionAmount && (
-                <span className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-blue-800">
-                  <DollarSign className="h-3.5 w-3.5 text-blue-600" />
-                  Fixed Plan: <span className="text-blue-700">{fmtMoney(client.subscriptionAmount)}</span>/mo
+                <span className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-lg px-3 py-1.5 text-xs font-semibold text-foreground">
+                  <DollarSign className="h-3.5 w-3.5 text-primary" />
+                  Fixed Plan: <span className="text-primary">{fmtMoney(client.subscriptionAmount)}</span>/mo
                 </span>
               )}
             </div>
@@ -1322,11 +1335,12 @@ export default function ClientDetailPage() {
             </span>
           </div>
         </div>
+        </PortalDetailGlass>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
-            { label: 'Total Jobs',      value: stats.totalJobs,                  sub: 'All time',                  top: 'bg-blue-500' },
+            { label: 'Total Jobs',      value: stats.totalJobs,                  sub: 'All time',                  top: 'bg-primary/100' },
             { label: 'Outstanding',     value: fmtMoney(stats.outstandingAmount), sub: 'Invoiced + Overdue',        top: 'bg-yellow-500' },
             { label: 'Total Collected', value: fmtMoney(stats.collectedAmount),   sub: 'All time',                  top: 'bg-green-500' },
             { label: 'Overdue',         value: fmtMoney(stats.overdueAmount),     sub: `${stats.overdueCount} invoice${stats.overdueCount !== 1 ? 's' : ''} past due`, top: 'bg-red-500' },
@@ -1347,7 +1361,7 @@ export default function ClientDetailPage() {
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-2 flex-wrap">
             <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-blue-600" />
+              <CreditCard className="h-4 w-4 text-primary" />
               Billing &amp; Payment Info
             </h3>
             <div className="flex items-center gap-2">
@@ -1368,7 +1382,7 @@ export default function ClientDetailPage() {
               <Button
                 size="sm"
                 onClick={openAddPaymentMethod}
-                className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-xs h-8"
+                className="gap-1.5 bg-primary hover:bg-primary/90 text-xs h-8"
                 title="Add a card or US bank account — same widget customers see on invoice.stripe.com"
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -1385,7 +1399,7 @@ export default function ClientDetailPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Saved Payment Methods
                   {displayMethods.length > 0 && (
-                    <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                    <span className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold">
                       {displayMethods.length}
                     </span>
                   )}
@@ -1407,7 +1421,7 @@ export default function ClientDetailPage() {
                       key={pm.id}
                       className={`rounded-lg border p-4 flex items-center gap-4 ${
                         pm.isDefault
-                          ? 'border-blue-200 bg-blue-50/40'
+                          ? 'border-primary/20 bg-primary/10'
                           : 'border-border bg-card'
                       }`}
                     >
@@ -1417,7 +1431,7 @@ export default function ClientDetailPage() {
                           <Building2 className="h-5 w-5 text-white" />
                         </div>
                       ) : (
-                        <div className="h-10 w-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-md flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <div className="h-10 w-16 bg-gradient-to-br from-primary to-violet-900 rounded-md flex items-center justify-center flex-shrink-0 shadow-sm">
                           <CreditCard className="h-5 w-5 text-white" />
                         </div>
                       )}
@@ -1433,8 +1447,8 @@ export default function ClientDetailPage() {
                             •••• {pm.last4}
                           </p>
                           {pm.isDefault && (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
-                              <Star className="h-3 w-3 fill-blue-600 text-blue-600" />
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">
+                              <Star className="h-3 w-3 fill-primary text-primary" />
                               Default
                             </span>
                           )}
@@ -1546,7 +1560,7 @@ export default function ClientDetailPage() {
                             variant="outline"
                             onClick={() => handleSetDefault(pm.id)}
                             disabled={settingDefault === pm.id}
-                            className="h-7 text-xs gap-1 text-blue-700 border-blue-200 hover:border-blue-400"
+                            className="h-7 text-xs gap-1 text-primary border-primary/20 hover:border-primary/40"
                             title="Set as default card"
                           >
                             {settingDefault === pm.id
@@ -1630,7 +1644,7 @@ export default function ClientDetailPage() {
                           setSubCardId(client.subscriptionPaymentMethodId || '');
                           setShowSubModal(true);
                         }}
-                        className="gap-1.5 text-blue-600 border-blue-200 hover:border-blue-300 text-xs"
+                        className="gap-1.5 text-primary border-primary/20 hover:border-primary/25 text-xs"
                       >
                         <Edit2 className="h-3.5 w-3.5" />
                         Edit Plan
@@ -1781,7 +1795,7 @@ export default function ClientDetailPage() {
                     placeholder="e.g. 300"
                     value={subAmount}
                     onChange={(e) => setSubAmount(e.target.value)}
-                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
 
@@ -1797,13 +1811,13 @@ export default function ClientDetailPage() {
                     placeholder="e.g. 2 = charged on the 2nd"
                     value={subBillingDay}
                     onChange={(e) => setSubBillingDay(e.target.value)}
-                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
 
                 {/* Summary */}
                 {subAmount && subBillingDay && subCardId && (
-                  <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 px-4 py-3 text-sm text-foreground">
                     <strong>${parseFloat(subAmount || '0').toFixed(2)}</strong> charged on the{' '}
                     <strong>{ordinal(parseInt(subBillingDay || '1', 10))}</strong> of every month to{' '}
                     <strong>
@@ -1831,7 +1845,7 @@ export default function ClientDetailPage() {
                 <Button
                   onClick={handleCreateSubscription}
                   disabled={creatingSub}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1 bg-primary hover:bg-primary/90"
                 >
                   {creatingSub ? (
                     <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</>
@@ -1896,7 +1910,7 @@ export default function ClientDetailPage() {
                             <CheckCircle className="h-3 w-3" />Paid
                           </span>
                         ) : ci.status === 'sent' ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary">
                             <Mail className="h-3 w-3" />Sent
                           </span>
                         ) : (
@@ -1931,7 +1945,7 @@ export default function ClientDetailPage() {
                               variant="outline"
                               disabled={markingConsolidatedPaid === ci.id}
                               onClick={() => handleMarkConsolidatedPaidManual(ci)}
-                              className="h-7 text-xs gap-1 text-blue-700 border-blue-200 hover:border-blue-400"
+                              className="h-7 text-xs gap-1 text-primary border-primary/20 hover:border-primary/40"
                             >
                               {markingConsolidatedPaid === ci.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
                               Mark Paid
@@ -1980,7 +1994,7 @@ export default function ClientDetailPage() {
                   </label>
                   <div className="flex gap-2">
                     <button
-                      className="text-xs text-blue-600 hover:underline"
+                      className="text-xs text-primary hover:underline"
                       onClick={() => setSelectedInvoiceIds(eligibleInvoices.map((i) => i.id))}
                     >
                       Select all
@@ -2016,7 +2030,7 @@ export default function ClientDetailPage() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-sm font-semibold text-foreground">{fmtMoney(inv.totalAmount)}</p>
-                          <span className={`text-xs ${inv.status === 'overdue' ? 'text-red-600' : 'text-blue-600'}`}>
+                          <span className={`text-xs ${inv.status === 'overdue' ? 'text-red-600' : 'text-primary'}`}>
                             {inv.status === 'overdue' ? 'Overdue' : 'Sent'}
                           </span>
                         </div>
@@ -2110,10 +2124,10 @@ export default function ClientDetailPage() {
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
-              <History className="h-4 w-4 text-blue-600" />
+              <History className="h-4 w-4 text-primary" />
               Transaction History
               {charges.length > 0 && (
-                <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold px-1.5">
+                <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary/15 text-primary text-xs font-bold px-1.5">
                   {charges.length}
                 </span>
               )}
@@ -2189,9 +2203,9 @@ export default function ClientDetailPage() {
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-blue-600" />
+              <MapPin className="h-4 w-4 text-primary" />
               Assigned Locations
-              <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-blue-100 text-blue-700 text-xs font-bold px-1.5">
+              <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-primary/15 text-primary text-xs font-bold px-1.5">
                 {locations.length}
               </span>
             </h3>
@@ -2211,8 +2225,8 @@ export default function ClientDetailPage() {
                     : null;
                   return (
                     <div key={loc.id} className="rounded-lg border border-border p-4 flex items-start gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
-                        <MapPin className="h-4 w-4 text-blue-600" />
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <MapPin className="h-4 w-4 text-primary" />
                       </div>
                       <div className="min-w-0">
                         <p className="font-semibold text-foreground text-sm truncate">{loc.locationName}</p>
@@ -2249,7 +2263,7 @@ export default function ClientDetailPage() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
                     activeTab === tab.key
-                      ? 'bg-card text-blue-600 shadow-sm'
+                      ? 'bg-card text-primary shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -2257,7 +2271,7 @@ export default function ClientDetailPage() {
                   <span
                     className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-xs font-bold px-1 ${
                       activeTab === tab.key
-                        ? tab.danger ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                        ? tab.danger ? 'bg-red-100 text-red-600' : 'bg-primary/15 text-primary'
                         : tab.danger ? 'bg-red-50 text-red-500' : 'bg-muted text-muted-foreground'
                     }`}
                   >
@@ -2294,7 +2308,7 @@ export default function ClientDetailPage() {
                 ) : (
                   filtered.map((wo) => (
                     <tr key={wo.id} className="hover:bg-muted transition-colors">
-                      <td className="px-4 py-3.5 font-semibold text-blue-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 font-semibold text-primary whitespace-nowrap">
                         {wo.workOrderNumber || wo.id.slice(0, 8).toUpperCase()}
                       </td>
                       <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
@@ -2551,8 +2565,8 @@ export default function ClientDetailPage() {
           <div className="relative my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-4 py-4 sm:px-6 rounded-t-2xl">
               <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center">
-                  <CreditCard className="h-4 w-4 text-blue-600" />
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-primary" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground text-sm">Add Card for {client?.fullName}</h3>
@@ -2572,7 +2586,7 @@ export default function ClientDetailPage() {
                   <label className="block text-xs font-medium text-muted-foreground mb-2">Card details</label>
                   <div
                     ref={cardMountRef}
-                    className="w-full rounded-lg border border-border bg-card px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all min-h-[46px]"
+                    className="w-full rounded-lg border border-border bg-card px-4 py-3.5 text-sm focus-within:ring-2 focus-within:ring-ring focus-within:border-ring transition-all min-h-[46px]"
                   />
                   {cardError && (
                     <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
@@ -2595,7 +2609,7 @@ export default function ClientDetailPage() {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2"
+                    className="flex-1 bg-primary hover:bg-primary/90 gap-2"
                     disabled={submittingCard || !!cardError}
                   >
                     {submittingCard ? (
@@ -2785,7 +2799,7 @@ export default function ClientDetailPage() {
                     value={editAutoChargeThreshold}
                     onChange={(e) => setEditAutoChargeThreshold(e.target.value)}
                     placeholder="e.g. 500.00"
-                    className="w-full border border-border rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Auto-charge when consolidated invoice reaches this amount</p>
@@ -2793,7 +2807,7 @@ export default function ClientDetailPage() {
             </div>
             <div className="flex shrink-0 gap-2 border-t border-border bg-card p-4 sm:p-6">
               <Button variant="outline" onClick={() => setShowBillingTermsModal(false)} className="flex-1" disabled={savingBillingTerms}>Cancel</Button>
-              <Button onClick={handleSaveBillingTerms} disabled={savingBillingTerms} className="flex-1 bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleSaveBillingTerms} disabled={savingBillingTerms} className="flex-1 bg-primary hover:bg-primary/90">
                 {savingBillingTerms ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</> : 'Save Changes'}
               </Button>
             </div>
@@ -2828,7 +2842,7 @@ export default function ClientDetailPage() {
                     value={editFullName}
                     onChange={(e) => setEditFullName(e.target.value)}
                     placeholder="Full name"
-                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
                 <div>
@@ -2838,7 +2852,7 @@ export default function ClientDetailPage() {
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
                     placeholder="(555) 123-4567"
-                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
               </div>
@@ -2849,7 +2863,7 @@ export default function ClientDetailPage() {
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   placeholder="client@example.com"
-                  className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
                 {editEmail && editOriginalEmail && editEmail.trim().toLowerCase() !== editOriginalEmail.trim().toLowerCase() && (
                   <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md mt-1.5 px-2 py-1.5">
@@ -2905,7 +2919,7 @@ export default function ClientDetailPage() {
                   value={editStreet}
                   onChange={(e) => setEditStreet(e.target.value)}
                   placeholder="123 Main St"
-                  className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2916,7 +2930,7 @@ export default function ClientDetailPage() {
                     value={editCity}
                     onChange={(e) => setEditCity(e.target.value)}
                     placeholder="City"
-                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
                 <div>
@@ -2926,7 +2940,7 @@ export default function ClientDetailPage() {
                     value={editStateRegion}
                     onChange={(e) => setEditStateRegion(e.target.value)}
                     placeholder="State"
-                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
                 <div>
@@ -2936,7 +2950,7 @@ export default function ClientDetailPage() {
                     value={editZip}
                     onChange={(e) => setEditZip(e.target.value)}
                     placeholder="ZIP"
-                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
               </div>
@@ -2975,7 +2989,7 @@ export default function ClientDetailPage() {
                       value={editAutoChargeThresholdMain}
                       onChange={(e) => setEditAutoChargeThresholdMain(e.target.value)}
                       placeholder="e.g. 500.00"
-                      className="w-full border border-border rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-border rounded-lg pl-7 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     />
                   </div>
                 </div>
@@ -3019,7 +3033,7 @@ export default function ClientDetailPage() {
                         onChange={(e) => setEditAssignedLocations((prev) =>
                           e.target.checked ? [...prev, loc.id] : prev.filter((x) => x !== loc.id)
                         )}
-                        className="h-4 w-4 text-blue-600 rounded border-input"
+                        className="h-4 w-4 text-primary rounded border-input"
                       />
                       <span className="text-sm text-foreground">{loc.locationName}</span>
                       {loc.companyName && <span className="text-xs text-muted-foreground">· {loc.companyName}</span>}
@@ -3033,7 +3047,7 @@ export default function ClientDetailPage() {
 
             <div className="flex shrink-0 gap-2 border-t border-border bg-card p-4 sm:p-6">
               <Button variant="outline" onClick={() => setShowEditClientModal(false)} className="flex-1" disabled={savingClientInfo}>Cancel</Button>
-              <Button onClick={handleSaveClientInfo} disabled={savingClientInfo} className="flex-1 bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleSaveClientInfo} disabled={savingClientInfo} className="flex-1 bg-primary hover:bg-primary/90">
                 {savingClientInfo ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Saving…</> : 'Save Changes'}
               </Button>
             </div>
@@ -3060,7 +3074,7 @@ function BillingRow({
   const valueClass = highlight === 'green'
     ? 'text-emerald-700 font-semibold'
     : highlight === 'blue'
-    ? 'text-blue-700 font-semibold'
+    ? 'text-primary font-semibold'
     : highlight === 'red'
     ? 'text-red-600 font-semibold'
     : 'text-foreground';

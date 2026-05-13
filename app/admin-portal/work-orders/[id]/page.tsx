@@ -29,7 +29,8 @@ import { ImageLightbox } from '@/components/ui/image-lightbox';
 import type { VendorPayment, VendorPaymentAdjustment, VendorPaymentStatus } from '@/types';
 
 import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
+import { PortalDetailGlass } from '@/components/ui/portal-detail-glass';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 const WORK_ORDER_EDIT_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
@@ -549,10 +550,10 @@ export default function ViewWorkOrder() {
       case 'pending': return 'text-yellow-800 bg-yellow-50 border-yellow-200 dark:text-yellow-200 dark:bg-yellow-950/40 dark:border-yellow-900/60';
       case 'approved': return 'text-emerald-800 bg-emerald-50 border-emerald-200 dark:text-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-900/60';
       case 'rejected': return 'text-red-800 bg-red-50 border-red-200 dark:text-red-200 dark:bg-red-950/40 dark:border-red-900/60';
-      case 'bidding': return 'text-blue-800 bg-blue-50 border-blue-200 dark:text-blue-200 dark:bg-blue-950/40 dark:border-blue-900/60';
+      case 'bidding': return 'text-foreground bg-primary/10 border-primary/20 dark:text-muted-foreground dark:bg-primary/20 dark:border-primary/30';
       case 'diagnostic_accepted': return 'text-indigo-800 bg-indigo-50 border-indigo-200 dark:text-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900/60';
       case 'diagnostic_rejected': return 'text-red-800 bg-red-50 border-red-200 dark:text-red-200 dark:bg-red-950/40 dark:border-red-900/60';
-      case 'quotes_received': return 'text-blue-800 bg-blue-50 border-blue-200 dark:text-blue-200 dark:bg-blue-950/40 dark:border-blue-900/60';
+      case 'quotes_received': return 'text-foreground bg-primary/10 border-primary/20 dark:text-muted-foreground dark:bg-primary/20 dark:border-primary/30';
       case 'assigned': return 'text-indigo-800 bg-indigo-50 border-indigo-200 dark:text-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900/60';
       case 'accepted_by_subcontractor': return 'text-violet-800 bg-violet-50 border-violet-200 dark:text-violet-200 dark:bg-violet-950/40 dark:border-violet-900/60';
       case 'diagnostic_submitted': return 'text-indigo-800 bg-indigo-50 border-indigo-200 dark:text-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-900/60';
@@ -1974,16 +1975,11 @@ export default function ViewWorkOrder() {
 
   if (loading) {
     return (
-      <PageContainer>
-        <PortalHero
-          title="Work order"
-          subtitle="Loading details…"
-          icon={ClipboardList}
-        />
+      <PortalListPage title="Work order" subtitle="Loading details…" icon={ClipboardList}>
         <div className="flex items-center justify-center rounded-3xl border border-border/60 bg-card/90 py-28 shadow-lg shadow-slate-900/[0.04] backdrop-blur-sm dark:shadow-black/30">
           <div className="h-11 w-11 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-      </PageContainer>
+      </PortalListPage>
     );
   }
 
@@ -2024,12 +2020,7 @@ export default function ViewWorkOrder() {
   return (
     <>
       <PageContainer>
-        {/* Hero — glass panel, breadcrumb, primary metadata, action rail */}
-        <div className="relative overflow-hidden rounded-[1.75rem] border border-border/70 bg-card/85 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.12)] ring-1 ring-black/[0.04] backdrop-blur-xl dark:bg-zinc-900/75 dark:shadow-[0_24px_48px_-12px_rgba(0,0,0,0.45)] dark:ring-white/[0.06]">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/10" aria-hidden />
-          <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-sky-400/15 blur-3xl dark:bg-sky-500/10" aria-hidden />
-          <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-violet-400/12 blur-3xl dark:bg-violet-600/10" aria-hidden />
-          <div className="relative space-y-5 p-5 sm:p-7">
+        <PortalDetailGlass>
             <nav className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground" aria-label="Breadcrumb">
               <Link href="/admin-portal/work-orders" className="font-medium transition-colors hover:text-foreground">
                 Work orders
@@ -2220,8 +2211,7 @@ export default function ViewWorkOrder() {
             )}
               </div>
             </div>
-          </div>
-        </div>
+        </PortalDetailGlass>
 
         {/* Create Invoice Modal */}
         {showInvoiceModal && (
@@ -2338,7 +2328,7 @@ export default function ViewWorkOrder() {
                       <select
                         value={invoiceAutoChargePmId}
                         onChange={(e) => setInvoiceAutoChargePmId(e.target.value)}
-                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                       >
                         {invoiceClientPms.map((pm) => {
                           const label = pm.type === 'us_bank_account'
@@ -2783,7 +2773,7 @@ export default function ViewWorkOrder() {
                       <div className="space-y-2">
                         {diagnosticRequests.slice(0, 2).map(q => {
                           const amt = (q as any).diagnosticFee ?? q.totalAmount ?? 0;
-                          const statusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-blue-600', accepted: 'text-green-600', rejected: 'text-red-600' };
+                          const statusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-primary', accepted: 'text-green-600', rejected: 'text-red-600' };
                           const statusLabels: Record<string, string> = { pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' };
                           return (
                             <div key={q.id} className="p-3 rounded-lg bg-indigo-50/60 border border-indigo-200">
@@ -2819,7 +2809,7 @@ export default function ViewWorkOrder() {
                       <div className="space-y-2">
                         {regularQuotes.slice(0, 2).map(q => {
                           const qDisplayAmount = q.clientAmount || q.totalAmount || 0;
-                          const qStatusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-blue-600', accepted: 'text-green-600', rejected: 'text-red-600' };
+                          const qStatusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-primary', accepted: 'text-green-600', rejected: 'text-red-600' };
                           const qStatusLabels: Record<string, string> = { pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' };
                           const canAssignQ = q.status === 'accepted' && !['assigned', 'accepted_by_subcontractor', 'pending_invoice', 'completed'].includes(workOrder.status);
                           return (
@@ -3004,7 +2994,7 @@ export default function ViewWorkOrder() {
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
                           vendorPayment.status === 'paid'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-blue-50 text-blue-800 border-blue-200'
+                            : 'bg-primary/10 text-foreground border-primary/20'
                         }`}>
                           {vendorPayment.status.toUpperCase()}
                         </span>
@@ -3520,7 +3510,7 @@ export default function ViewWorkOrder() {
                         };
                         const statusColors: Record<string, string> = {
                           pending: 'text-yellow-600',
-                          sent_to_client: 'text-blue-600',
+                          sent_to_client: 'text-primary',
                           accepted: 'text-green-600',
                           rejected: 'text-red-600',
                         };
@@ -3593,7 +3583,7 @@ export default function ViewWorkOrder() {
                         const canAssign = !['assigned', 'accepted_by_subcontractor', 'pending_invoice', 'completed'].includes(workOrder.status);
                         const canShare = workOrder.status === 'quotes_received' && quote.status !== 'accepted' && quote.status !== 'rejected';
                         const statusLabels: Record<string, string> = { pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' };
-                        const statusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-blue-600', accepted: 'text-green-600', rejected: 'text-red-600' };
+                        const statusColors: Record<string, string> = { pending: 'text-yellow-600', sent_to_client: 'text-primary', accepted: 'text-green-600', rejected: 'text-red-600' };
                         return (
                         <div key={quote.id} className={`rounded-xl border border-border bg-card/60 p-4 shadow-sm transition-all hover:shadow-md dark:bg-card/40 ${isAccepted ? 'border-emerald-300/80 bg-emerald-50/40 dark:border-emerald-800/50 dark:bg-emerald-950/20' : ''} ${selectedQuoteIds.includes(quote.id) ? 'ring-2 ring-primary/25 ring-offset-2 ring-offset-background dark:ring-offset-card' : ''}`}>
                           <div className="flex items-start gap-3">
@@ -3631,7 +3621,7 @@ export default function ViewWorkOrder() {
                               View Full Quote
                             </Button>
                             {canShare && (
-                              <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => openShareModal(quote)}>
+                              <Button size="sm" className="w-full bg-primary hover:bg-primary/90" onClick={() => openShareModal(quote)}>
                                 <Share2 className="h-3.5 w-3.5 mr-2" />
                                 {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Share Quote with Client'}
                               </Button>
@@ -3729,9 +3719,9 @@ export default function ViewWorkOrder() {
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-4">
-              <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 className="font-semibold text-blue-900 mb-1">{workOrder?.title}</h3>
-                <p className="text-sm text-blue-700">{workOrder?.workOrderNumber}</p>
+              <div className="mb-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
+                <h3 className="font-semibold text-foreground mb-1">{workOrder?.title}</h3>
+                <p className="text-sm text-primary">{workOrder?.workOrderNumber}</p>
               </div>
               <div className="mb-3 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -3754,7 +3744,7 @@ export default function ViewWorkOrder() {
                       const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                       setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                     }}
-                    className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 shrink-0"
+                    className="h-4 w-4 text-primary border-border rounded focus:ring-ring shrink-0"
                   />
                   <label htmlFor="selectAllAdminDetailBidding" className="text-sm font-medium text-foreground truncate">Select All ({subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length})</label>
                 </div>
@@ -3771,7 +3761,7 @@ export default function ViewWorkOrder() {
                         sub.alreadyInvited
                           ? 'bg-muted/40 border-border opacity-60 cursor-default'
                           : selectedSubcontractors.includes(sub.id)
-                            ? sub.matchesCategory ? 'bg-green-50 border-green-400 ring-2 ring-green-200 cursor-pointer' : 'bg-blue-50 border-blue-300 cursor-pointer'
+                            ? sub.matchesCategory ? 'bg-green-50 border-green-400 ring-2 ring-green-200 cursor-pointer' : 'bg-primary/10 border-primary/25 cursor-pointer'
                             : sub.matchesCategory ? 'bg-green-50 border-green-300 hover:border-green-400 cursor-pointer' : 'bg-card border-border hover:bg-muted cursor-pointer'
                       }`}
                       onClick={() => { if (!sub.alreadyInvited) setSelectedSubcontractors(prev => prev.includes(sub.id) ? prev.filter(id => id !== sub.id) : [...prev, sub.id]); }}
@@ -3781,7 +3771,7 @@ export default function ViewWorkOrder() {
                         checked={selectedSubcontractors.includes(sub.id)}
                         disabled={sub.alreadyInvited}
                         onChange={() => {}}
-                        className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 disabled:opacity-50"
+                        className="h-4 w-4 text-primary border-border rounded focus:ring-ring disabled:opacity-50"
                         onClick={e => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">
@@ -3841,7 +3831,7 @@ export default function ViewWorkOrder() {
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               {assignFromQuote && (
-                <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <div className="p-3 bg-primary/10 rounded-lg text-sm text-primary">
                   Assigning quote from <strong>{assignFromQuote.subcontractorName}</strong> — ${(assignFromQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
               )}
@@ -3886,7 +3876,7 @@ export default function ViewWorkOrder() {
                 <p className="text-xs text-muted-foreground">{viewQuoteDetail.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${{ pending: 'text-yellow-600 bg-yellow-50', sent_to_client: 'text-blue-600 bg-blue-50', accepted: 'text-green-600 bg-green-50', rejected: 'text-red-600 bg-red-50' }[viewQuoteDetail.status] || 'text-muted-foreground bg-muted'}`}>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${{ pending: 'text-yellow-600 bg-yellow-50', sent_to_client: 'text-primary bg-primary/10', accepted: 'text-green-600 bg-green-50', rejected: 'text-red-600 bg-red-50' }[viewQuoteDetail.status] || 'text-muted-foreground bg-muted'}`}>
                   {{ pending: 'Pending', sent_to_client: 'Sent to Client', accepted: 'Accepted', rejected: 'Rejected' }[viewQuoteDetail.status] || viewQuoteDetail.status}
                 </span>
                 <Button variant="outline" size="sm" onClick={() => setViewQuoteDetail(null)}><X className="h-4 w-4" /></Button>
@@ -3897,7 +3887,7 @@ export default function ViewWorkOrder() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><p className="text-xs text-muted-foreground mb-0.5">Subcontractor Total</p><p className="font-semibold text-base">{formatMoney(viewQuoteDetail.totalAmount)}</p></div>
                 {viewQuoteDetail.clientAmount != null && (
-                  <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuoteDetail.markupPercentage != null ? `(${viewQuoteDetail.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-blue-600">{formatMoney(viewQuoteDetail.clientAmount)}</p></div>
+                  <div><p className="text-xs text-muted-foreground mb-0.5">Client Amount {viewQuoteDetail.markupPercentage != null ? `(${viewQuoteDetail.markupPercentage}% markup)` : ''}</p><p className="font-semibold text-base text-primary">{formatMoney(viewQuoteDetail.clientAmount)}</p></div>
                 )}
               </div>
               {/* Client-facing line items */}
@@ -3921,7 +3911,7 @@ export default function ViewWorkOrder() {
                     </table>
                     </div>
                   </div>
-                  <div className="mt-2 text-right text-sm font-semibold text-blue-600">Client Total: {formatMoney(viewQuoteDetail.clientAmount)}</div>
+                  <div className="mt-2 text-right text-sm font-semibold text-primary">Client Total: {formatMoney(viewQuoteDetail.clientAmount)}</div>
                 </div>
               )}
               {/* Original subcontractor line items */}
@@ -3957,7 +3947,7 @@ export default function ViewWorkOrder() {
             </div>
             <div className="flex shrink-0 flex-col gap-2 border-t border-border bg-card p-5">
                 {viewQuoteDetail.status !== 'accepted' && viewQuoteDetail.status !== 'rejected' && workOrder.status === 'quotes_received' && (
-                  <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => { openShareModal(viewQuoteDetail); setViewQuoteDetail(null); }}>
+                  <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => { openShareModal(viewQuoteDetail); setViewQuoteDetail(null); }}>
                     <Share2 className="h-4 w-4 mr-2" />
                     {viewQuoteDetail.status === 'sent_to_client' ? 'Resend to Client' : 'Share with Client'}
                   </Button>
@@ -3998,7 +3988,7 @@ export default function ViewWorkOrder() {
               </Button>
             </div>
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-              <div className="p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+              <div className="p-3 bg-primary/10 rounded-lg text-sm text-primary">
                 Sharing quote from <strong>{shareQuote.subcontractorName}</strong> — subcontractor total: <strong>${(shareQuote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</strong>
               </div>
               <div>
@@ -4092,14 +4082,14 @@ export default function ViewWorkOrder() {
                 </div>
                 <div className="mt-2 flex justify-between items-center text-sm font-semibold border-t pt-2">
                   <span>Client Total</span>
-                  <span className="text-blue-600">${clientTotalPreview.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  <span className="text-primary">${clientTotalPreview.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>
             <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-border bg-card p-5 sm:flex-row">
                 <Button variant="outline" className="flex-1 w-full sm:w-auto" onClick={() => setShowShareModal(false)}>Cancel</Button>
                 <Button
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 w-full sm:w-auto"
+                  className="flex-1 bg-primary hover:bg-primary/90 w-full sm:w-auto"
                   onClick={handleShareWithClient}
                   disabled={shareSubmitting}
                 >

@@ -23,9 +23,7 @@ import { toast } from 'sonner';
 import { notifyClientOfInvoice } from '@/lib/notifications';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -1338,7 +1336,7 @@ function InvoicesManagementInner() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'draft': return 'text-amber-700 bg-amber-50 border border-amber-200';
-      case 'sent': return 'text-blue-700 bg-blue-50 border border-blue-200';
+      case 'sent': return 'text-primary bg-primary/10 border border-primary/20';
       case 'paid': return 'text-emerald-700 bg-emerald-50 border border-emerald-200';
       default: return 'text-muted-foreground bg-muted';
     }
@@ -1346,31 +1344,12 @@ function InvoicesManagementInner() {
 
   return (
     <>
-      <PageContainer>
-        <PortalHero
-          title="Invoices"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            {workOrderIdFilter && (
-              <p className="text-sm text-muted-foreground mb-1">
-                Showing invoices for this work order ·{' '}
-                <Link href={`/admin-portal/work-orders/${workOrderIdFilter}`} className="text-primary hover:underline">
-                  Back to work order
-                </Link>
-                {' · '}
-                <Link href="/admin-portal/invoices" className="text-primary hover:underline">
-                  All invoices
-                </Link>
-              </p>
-            )}
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Invoices</h1>
-            <p className="text-muted-foreground mt-2">Generate and manage invoices with Stripe payment links</p>
-          </div>
-          <div className="flex items-center gap-2">
+      <PortalListPage
+        title="Invoices"
+        subtitle="Generate and manage invoices with Stripe payment links."
+        icon={Receipt}
+        heroAction={
+          <>
             <Button
               variant="outline"
               onClick={handleRefreshLegacyStripeLinks}
@@ -1390,8 +1369,22 @@ function InvoicesManagementInner() {
               <Upload className="h-4 w-4 mr-2" />
               Upload Invoice
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      >
+      <div className="space-y-6">
+        {workOrderIdFilter && (
+          <p className="text-sm text-muted-foreground">
+            Showing invoices for this work order ·{' '}
+            <Link href={`/admin-portal/work-orders/${workOrderIdFilter}`} className="text-primary hover:underline">
+              Back to work order
+            </Link>
+            {' · '}
+            <Link href="/admin-portal/invoices" className="text-primary hover:underline">
+              All invoices
+            </Link>
+          </p>
+        )}
 
         {/* Search Bar */}
         <div className="relative">
@@ -1451,7 +1444,7 @@ function InvoicesManagementInner() {
                         <div className="font-semibold text-sm tabular-nums">{formatMoney(item.amount)}</div>
                         <div className="text-[11px]">
                           {item.isDiagnostic ? (
-                            <span className="text-blue-700 dark:text-blue-300">Diagnostic visit</span>
+                            <span className="text-primary dark:text-primary">Diagnostic visit</span>
                           ) : item.markupAlreadyApplied ? (
                             <span className="text-emerald-700 dark:text-emerald-300">Markup applied · ready</span>
                           ) : (
@@ -1783,7 +1776,7 @@ function InvoicesManagementInner() {
                           <div className="md:col-span-2 flex items-end gap-2">
                             <div className="flex-1">
                               <Label className="text-xs">Amount</Label>
-                              <div className="text-lg font-bold text-blue-600">
+                              <div className="text-lg font-bold text-primary">
                                 {formatMoney(item.amount)}
                               </div>
                             </div>
@@ -1803,10 +1796,10 @@ function InvoicesManagementInner() {
                   </div>
 
                   {/* Total */}
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <div className="mt-4 p-4 bg-primary/10 rounded-lg">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total Amount:</span>
-                      <span className="text-2xl font-bold text-blue-600">
+                      <span className="text-2xl font-bold text-primary">
                         {formatMoney(calculateTotal())}
                       </span>
                     </div>
@@ -2000,7 +1993,7 @@ function InvoicesManagementInner() {
 
                   {/* Markup — context-aware */}
                   {editMarkupContext === 'diagnostic' ? (
-                    <div className="rounded-md border border-blue-200 bg-blue-50/60 dark:bg-blue-950/20 px-3 py-2 text-xs text-blue-800 dark:text-blue-200">
+                    <div className="rounded-md border border-primary/20 bg-primary/15 dark:bg-primary/20 px-3 py-2 text-xs text-foreground dark:text-muted-foreground">
                       <span className="font-semibold">Diagnostic visit</span> — no markup is applied to diagnostic fees.
                     </div>
                   ) : editMarkupContext === 'locked' ? (
@@ -2035,7 +2028,7 @@ function InvoicesManagementInner() {
                       <Label htmlFor="editStatus" className="text-xs">Status</Label>
                       <select
                         id="editStatus"
-                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         value={editStatus}
                         onChange={e => setEditStatus(e.target.value as 'draft' | 'sent')}
                       >
@@ -2125,7 +2118,7 @@ function InvoicesManagementInner() {
                         <select
                           value={editAutoChargePmId}
                           onChange={e => setEditAutoChargePmId(e.target.value)}
-                          className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                         >
                           {editClientPms.map(pm => (
                             <option key={pm.id} value={pm.id}>
@@ -2215,9 +2208,9 @@ function InvoicesManagementInner() {
                   )}
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-blue-900 mb-2">What happens next?</h3>
-                  <ul className="text-sm text-blue-800 space-y-1">
+                <div className="bg-primary/10 p-4 rounded-lg">
+                  <h3 className="font-semibold text-foreground mb-2">What happens next?</h3>
+                  <ul className="text-sm text-foreground space-y-1">
                     <li>• We'll extract invoice details from the PDF</li>
                     <li>• An invoice will be created with GroundOps branding</li>
                     <li>• A Stripe payment link will be generated</li>
@@ -2289,7 +2282,7 @@ function InvoicesManagementInner() {
           </div>
         )}
       </div>
-          </PageContainer>
+      </PortalListPage>
     </>
   );
 }

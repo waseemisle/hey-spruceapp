@@ -17,7 +17,7 @@ import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Company { id: string; clientId?: string; name: string; email?: string; phone?: string; logoUrl?: string }
 
 const AVATAR_COLORS = [
-  'from-blue-500 to-blue-700',
+  'from-primary to-violet-700',
   'from-purple-500 to-purple-700',
   'from-green-500 to-green-700',
   'from-orange-500 to-orange-700',
@@ -188,7 +188,7 @@ export default function AdminCompanies() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Companies', value: companies.length, icon: Building2, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+            { label: 'Total Companies', value: companies.length, icon: Building2, color: 'text-primary bg-primary/10 border-primary/15' },
             { label: 'Total Clients', value: totalClients, icon: Users, color: 'text-purple-600 bg-purple-50 border-purple-100' },
             { label: 'Total Locations', value: totalLocations, icon: MapPin, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
           ].map((s) => (

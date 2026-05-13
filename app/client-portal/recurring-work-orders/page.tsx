@@ -17,9 +17,7 @@ import { RecurringWorkOrder } from '@/types';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 export default function ClientRecurringWorkOrders() {
   const { auth, db } = useFirebaseInstance();
   const router = useRouter();
@@ -127,18 +125,11 @@ export default function ClientRecurringWorkOrders() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Recurring Work Orders"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Recurring Work Orders" subtitle="Loading…" icon={RotateCcw}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -156,22 +147,22 @@ export default function ClientRecurringWorkOrders() {
   }
 
   return (
-    <>
+    <PortalListPage
+      title="Recurring Work Orders"
+      subtitle="View and manage recurring work orders"
+      icon={RotateCcw}
+      heroAction={
+        canCreate ? (
+          <Link href="/client-portal/recurring-work-orders/create">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              New Recurring Work Order
+            </Button>
+          </Link>
+        ) : undefined
+      }
+    >
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Recurring Work Orders</h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">View and manage recurring work orders</p>
-          </div>
-          {canCreate && (
-            <Link href="/client-portal/recurring-work-orders/create">
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                New Recurring Work Order
-              </Button>
-            </Link>
-          )}
-        </div>
 
         {/* Search Bar */}
         <div className="relative">
@@ -254,6 +245,6 @@ export default function ClientRecurringWorkOrders() {
           </div>
         )}
       </div>
-    </>
+    </PortalListPage>
   );
 }

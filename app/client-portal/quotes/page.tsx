@@ -336,7 +336,7 @@ export default function ClientQuotes() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      sent_to_client: 'bg-blue-100 text-blue-800',
+      sent_to_client: 'bg-primary/15 text-foreground',
       accepted: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
     };
@@ -441,7 +441,7 @@ export default function ClientQuotes() {
                     {quote.sentToClientAt?.toDate?.().toLocaleDateString() || 'N/A'}
                   </span>
                   {(quote as any).proposedServiceDate && (
-                    <span className="flex items-center gap-1 text-blue-700">
+                    <span className="flex items-center gap-1 text-primary">
                       <Calendar className="h-3.5 w-3.5 shrink-0" />
                       Service: {(quote as any).proposedServiceDate?.toDate?.().toLocaleDateString() ||
                         new Date((quote as any).proposedServiceDate).toLocaleDateString()}

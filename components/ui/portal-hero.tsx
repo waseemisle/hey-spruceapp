@@ -14,9 +14,9 @@ export function PortalHero({
   rightPill?: React.ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-blue-50 via-card to-purple-50/60 dark:from-blue-950/30 dark:via-card dark:to-purple-950/20">
-      <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-blue-200/30 dark:bg-blue-900/20 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-16 -left-12 h-40 w-40 rounded-full bg-purple-200/30 dark:bg-purple-900/20 blur-3xl pointer-events-none" />
+    <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-violet-500/10 dark:from-primary/15 dark:via-card dark:to-violet-950/25">
+      <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-primary/20 blur-3xl dark:bg-primary/10" />
+      <div className="pointer-events-none absolute -bottom-16 -left-12 h-40 w-40 rounded-full bg-violet-500/15 blur-3xl dark:bg-violet-900/20" />
 
       <div className="relative p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-start gap-4">

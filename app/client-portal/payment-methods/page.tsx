@@ -315,7 +315,7 @@ function PaymentMethodsContent() {
         <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
           <div className="p-5">
             <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-blue-600" />
+              <CreditCard className="h-4 w-4 text-primary" />
               Saved Payment Method
             </h2>
 
@@ -323,7 +323,7 @@ function PaymentMethodsContent() {
               <div className="space-y-4">
                 {/* Card Display */}
                 <div className="flex items-center gap-4 p-4 rounded-lg border border-border bg-muted">
-                  <div className="h-10 w-16 bg-gradient-to-br from-blue-600 to-blue-800 rounded-md flex items-center justify-center">
+                  <div className="h-10 w-16 bg-gradient-to-br from-primary to-violet-900 rounded-md flex items-center justify-center">
                     <CreditCard className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1">
@@ -373,8 +373,8 @@ function PaymentMethodsContent() {
               </div>
             ) : (
               <div className="text-center py-8 space-y-3">
-                <div className="mx-auto h-12 w-12 bg-blue-50 rounded-full flex items-center justify-center">
-                  <CreditCard className="h-6 w-6 text-blue-400" />
+                <div className="mx-auto h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <CreditCard className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">No card saved</p>
@@ -428,11 +428,11 @@ function PaymentMethodsContent() {
         )}
 
         {/* Security Notice */}
-        <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 flex items-start gap-3">
-          <ShieldCheck className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+        <div className="rounded-xl border border-primary/15 bg-primary/10 p-4 flex items-start gap-3">
+          <ShieldCheck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-blue-900">Secure &amp; PCI Compliant</p>
-            <p className="text-xs text-blue-700 mt-1">
+            <p className="text-sm font-medium text-foreground">Secure &amp; PCI Compliant</p>
+            <p className="text-xs text-primary mt-1">
               Your card details are securely handled by Stripe and never stored on GroundOps servers.
               By saving a card, you authorize GroundOps to charge your card for invoices when they become due.
             </p>
@@ -577,8 +577,8 @@ function PaymentMethodsContent() {
           <div className="relative my-auto flex w-full max-w-md max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
             <div className="flex shrink-0 items-center justify-between border-b border-border bg-card px-4 py-4 sm:px-6 rounded-t-2xl">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
-                  <CreditCard className="h-4 w-4 text-blue-600" />
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <CreditCard className="h-4 w-4 text-primary" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-foreground text-sm truncate">
@@ -632,7 +632,7 @@ function PaymentMethodsContent() {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2 w-full sm:w-auto"
+                    className="flex-1 bg-primary hover:bg-primary/90 gap-2 w-full sm:w-auto"
                     disabled={submittingCard || !!cardError}
                   >
                     {submittingCard ? (

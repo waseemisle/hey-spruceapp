@@ -16,9 +16,7 @@ import Link from 'next/link';
 import QuoteSystemInfo from '@/components/quote-system-info';
 import type { QuoteTimelineEvent, QuoteSystemInformation } from '@/types';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Quote {
   id: string;
   workOrderId?: string;
@@ -305,7 +303,7 @@ export default function QuoteDetail() {
 
   const getStatusBadge = (status: string) => {
     const styles = {
-      sent_to_client: 'bg-blue-100 text-blue-800',
+      sent_to_client: 'bg-primary/15 text-foreground',
       accepted: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
     };
@@ -416,18 +414,11 @@ export default function QuoteDetail() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Quote" subtitle="Loading…" icon={FileText}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -576,23 +567,23 @@ export default function QuoteDetail() {
 
             {/* Proposed Service Schedule */}
             {quote.proposedServiceDate && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                 <div className="flex items-start gap-2">
-                  <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <Calendar className="h-5 w-5 text-primary mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-blue-900 mb-1">Proposed Service Schedule</p>
+                    <p className="text-sm font-semibold text-foreground mb-1">Proposed Service Schedule</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <div>
-                        <p className="text-xs text-blue-700">Date</p>
-                        <p className="text-sm font-medium text-blue-900">
+                        <p className="text-xs text-primary">Date</p>
+                        <p className="text-sm font-medium text-foreground">
                           {quote.proposedServiceDate?.toDate?.().toLocaleDateString() ||
                            new Date(quote.proposedServiceDate).toLocaleDateString()}
                         </p>
                       </div>
                       {quote.proposedServiceTime && (
                         <div>
-                          <p className="text-xs text-blue-700">Time</p>
-                          <p className="text-sm font-medium text-blue-900">
+                          <p className="text-xs text-primary">Time</p>
+                          <p className="text-sm font-medium text-foreground">
                             {quote.proposedServiceTime}
                           </p>
                         </div>

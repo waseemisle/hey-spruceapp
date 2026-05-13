@@ -13,9 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface CronRunResult {
   rwoId?: string;
   rwoTitle?: string;
@@ -311,42 +309,32 @@ export default function CronJobsPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Cron Jobs"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin" /></div>
-            </PageContainer>
-    </>
+      <PortalListPage title="Cron Jobs" subtitle="Loading scheduler…" icon={Timer}>
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
+    <PortalListPage
+      title="Cron Job Monitor"
+      subtitle="One shared timer drives recurring work orders and scheduled invoices. Review eligible items and run history below."
+      icon={Timer}
+      heroAction={
+        <>
+          <Button variant="outline" onClick={fetchData} disabled={dataLoading} size="sm">
+            <RefreshCw className={`h-4 w-4 mr-1 ${dataLoading ? 'animate-spin' : ''}`} /> Refresh
+          </Button>
+          <Button onClick={handleTriggerCron} disabled={triggering} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
+            {triggering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {triggering ? 'Running...' : 'Run Cron Now'}
+          </Button>
+        </>
+      }
+    >
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Cron Job Monitor</h1>
-            <p className="text-muted-foreground mt-1">
-              One shared timer drives both Recurring Work Orders and Scheduled Invoices.
-              Sections below show each feature&apos;s eligible items and run history.
-            </p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={fetchData} disabled={dataLoading} size="sm">
-              <RefreshCw className={`h-4 w-4 mr-1 ${dataLoading ? 'animate-spin' : ''}`} /> Refresh
-            </Button>
-            <Button onClick={handleTriggerCron} disabled={triggering} className="bg-emerald-600 hover:bg-emerald-700 gap-2">
-              {triggering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              {triggering ? 'Running...' : 'Run Cron Now'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Status Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <Card>
             <CardContent className="p-4">
@@ -457,7 +445,7 @@ export default function CronJobsPage() {
                 within the lead-time window.
               </p>
             </div>
-            <Button onClick={handleTriggerSiCron} disabled={triggeringSi} className="bg-blue-600 hover:bg-blue-700 gap-2">
+            <Button onClick={handleTriggerSiCron} disabled={triggeringSi} className="bg-primary hover:bg-primary/90 gap-2">
               {triggeringSi ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
               {triggeringSi ? 'Running…' : 'Run SI Cron Now'}
             </Button>
@@ -704,7 +692,7 @@ export default function CronJobsPage() {
                               </span>
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
                                 run.triggeredBy === 'vercel_cron'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  ? 'bg-primary/10 text-primary border-primary/20'
                                   : 'bg-purple-50 text-purple-700 border-purple-200'
                               }`}>
                                 {run.triggeredBy === 'vercel_cron' ? 'CRON' : 'MANUAL'}
@@ -794,7 +782,7 @@ export default function CronJobsPage() {
                                 </span>
                                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium border ${
                                   run.triggeredBy === 'vercel_cron'
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    ? 'bg-primary/10 text-primary border-primary/20'
                                     : 'bg-purple-50 text-purple-700 border-purple-200'
                                 }`}>
                                   {run.triggeredBy === 'vercel_cron' ? 'CRON' : 'MANUAL'}
@@ -851,6 +839,6 @@ export default function CronJobsPage() {
             </CardContent>
           </Card>
       </div>
-    </>
+    </PortalListPage>
   );
 }

@@ -142,7 +142,7 @@ export default function AdminWorkOrderGroupsList() {
               <p className="text-muted-foreground text-sm">No combined work orders yet.</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Select 2 or more work orders on the{' '}
-                <Link href="/admin-portal/work-orders" className="text-blue-600 hover:underline">
+                <Link href="/admin-portal/work-orders" className="text-primary hover:underline">
                   Work Orders
                 </Link>{' '}
                 page and click &quot;Combine Work Orders&quot;.
@@ -166,8 +166,8 @@ export default function AdminWorkOrderGroupsList() {
                       <tr key={group.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2 mb-1.5">
-                            <Layers className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            <Layers className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                               {group.workOrderIds.length} combined
                             </span>
                           </div>
@@ -176,7 +176,7 @@ export default function AdminWorkOrderGroupsList() {
                               <Link
                                 key={wo.id}
                                 href={`/admin-portal/work-orders/${wo.id}`}
-                                className="inline-flex items-center gap-1 text-xs bg-muted border border-border rounded-lg px-2 py-1 hover:bg-accent hover:border-blue-300 transition-colors"
+                                className="inline-flex items-center gap-1 text-xs bg-muted border border-border rounded-lg px-2 py-1 hover:bg-accent hover:border-primary/25 transition-colors"
                               >
                                 <ClipboardList className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                                 <span className="font-semibold text-foreground">

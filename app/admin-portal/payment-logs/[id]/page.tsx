@@ -1,8 +1,5 @@
 'use client';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
 /**
  * Admin → Payment Log detail
  *
@@ -28,8 +25,23 @@ import { db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowLeft, ExternalLink, AlertCircle, CheckCircle, AlertTriangle, Clock, RotateCcw, X, Building2, CreditCard, ChevronDown, ChevronUp, ListTree,
+  ArrowLeft,
+  ExternalLink,
+  AlertCircle,
+  CheckCircle,
+  AlertTriangle,
+  Clock,
+  RotateCcw,
+  X,
+  Building2,
+  CreditCard,
+  ChevronDown,
+  ChevronUp,
+  ListTree,
+  ChevronRight,
 } from 'lucide-react';
+import { PortalDetailGlass } from '@/components/ui/portal-detail-glass';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { formatMoney } from '@/lib/money';
 import type { PaymentLog } from '@/types';
 
@@ -50,7 +62,7 @@ const StatusBanner = ({ status }: { status: PaymentLog['status'] }) => {
       case 'succeeded': return { Icon: CheckCircle, cls: 'bg-emerald-50 border-emerald-200 text-emerald-700' };
       case 'failed': return { Icon: AlertCircle, cls: 'bg-red-50 border-red-200 text-red-700' };
       case 'requires_action': return { Icon: AlertTriangle, cls: 'bg-amber-50 border-amber-200 text-amber-700' };
-      case 'processing': return { Icon: Clock, cls: 'bg-blue-50 border-blue-200 text-blue-700' };
+      case 'processing': return { Icon: Clock, cls: 'bg-primary/10 border-primary/20 text-primary' };
       case 'refunded': return { Icon: RotateCcw, cls: 'bg-violet-50 border-violet-200 text-violet-700' };
       case 'disputed': return { Icon: AlertTriangle, cls: 'bg-orange-50 border-orange-200 text-orange-700' };
       case 'canceled': return { Icon: X, cls: 'bg-muted border-border text-muted-foreground' };
@@ -103,18 +115,11 @@ export default function PaymentLogDetailPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Payment log" subtitle="Loading…" icon={ListTree}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -144,67 +149,79 @@ export default function PaymentLogDetailPage() {
 
   return (
     <>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-          <Link href="/admin-portal/payment-logs">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <StatusBanner status={log.status} />
-          {stripeUrl && (
-            <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="ml-auto">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <PortalDetailGlass>
+          <nav
+            className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground"
+            aria-label="Breadcrumb"
+          >
+            <Link href="/admin-portal/payment-logs" className="font-medium transition-colors hover:text-foreground">
+              Payment logs
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" aria-hidden />
+            <span className="truncate font-mono text-xs text-foreground/90">{log.id}</span>
+          </nav>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/admin-portal/payment-logs">
               <Button variant="outline" size="sm">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                View in Stripe
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
               </Button>
-            </a>
-          )}
-        </div>
+            </Link>
+            <StatusBanner status={log.status} />
+            {stripeUrl && (
+              <a href={stripeUrl} target="_blank" rel="noopener noreferrer" className="ml-auto">
+                <Button variant="outline" size="sm">
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View in Stripe
+                </Button>
+              </a>
+            )}
+          </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <CardTitle>
-                  {log.stripeObjectType.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                </CardTitle>
-                <p className="font-mono text-xs text-muted-foreground mt-1">{log.stripeObjectId}</p>
-                {log.stripeEventId && (
-                  <p className="font-mono text-xs text-muted-foreground">event: {log.stripeEventId}</p>
+          <Card className="border-0 bg-transparent shadow-none">
+            <CardHeader className="px-0 pt-0">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <CardTitle>
+                    {log.stripeObjectType.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </CardTitle>
+                  <p className="mt-1 font-mono text-xs text-muted-foreground">{log.stripeObjectId}</p>
+                  {log.stripeEventId && (
+                    <p className="font-mono text-xs text-muted-foreground">event: {log.stripeEventId}</p>
+                  )}
+                </div>
+                <div className="text-right">
+                  {typeof log.amount === 'number' && (
+                    <p className="text-3xl font-bold">{formatMoney(log.amount)}</p>
+                  )}
+                  {log.currency && (
+                    <p className="text-xs uppercase text-muted-foreground">{log.currency}</p>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Source" value={log.source?.replace(/_/g, ' ')} />
+                <Field label="Event" value={log.rawEventType || '—'} mono />
+                <Field label="Stripe Created" value={fmtDateTime(stripeCreated)} />
+                <Field label="Recorded" value={fmtDateTime(recordedAt)} />
+              </div>
+              <div className="mt-4 grid grid-cols-1 gap-4 border-t pt-4 sm:grid-cols-3">
+                {typeof log.feeAmount === 'number' && (
+                  <Field label="Stripe fee" value={formatMoney(log.feeAmount / 100)} />
+                )}
+                {typeof log.netAmount === 'number' && (
+                  <Field label="Net" value={formatMoney(log.netAmount / 100)} />
+                )}
+                {log.balanceTransactionId && (
+                  <Field label="Balance txn" value={log.balanceTransactionId} mono small />
                 )}
               </div>
-              <div className="text-right">
-                {typeof log.amount === 'number' && (
-                  <p className="text-3xl font-bold">{formatMoney(log.amount)}</p>
-                )}
-                {log.currency && (
-                  <p className="text-xs text-muted-foreground uppercase">{log.currency}</p>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Field label="Source" value={log.source?.replace(/_/g, ' ')} />
-              <Field label="Event" value={log.rawEventType || '—'} mono />
-              <Field label="Stripe Created" value={fmtDateTime(stripeCreated)} />
-              <Field label="Recorded" value={fmtDateTime(recordedAt)} />
-            </div>
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t">
-              {typeof log.feeAmount === 'number' && (
-                <Field label="Stripe fee" value={formatMoney(log.feeAmount / 100)} />
-              )}
-              {typeof log.netAmount === 'number' && (
-                <Field label="Net" value={formatMoney(log.netAmount / 100)} />
-              )}
-              {log.balanceTransactionId && (
-                <Field label="Balance txn" value={log.balanceTransactionId} mono small />
-              )}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </PortalDetailGlass>
 
         {/* Linked records — deep links into Firestore */}
         <Card>
@@ -213,10 +230,10 @@ export default function PaymentLogDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {log.linkedInvoiceId ? (
                 <Link href={`/admin-portal/invoices/${log.linkedInvoiceId}`} className="block">
-                  <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 hover:border-blue-400 transition-colors">
+                  <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 hover:border-primary/40 transition-colors">
                     <p className="text-xs text-muted-foreground uppercase">Invoice</p>
                     <p className="font-semibold mt-0.5">{log.linkedInvoiceNumber || log.linkedInvoiceId}</p>
-                    <p className="text-xs text-blue-700 mt-1">Open in admin →</p>
+                    <p className="text-xs text-primary mt-1">Open in admin →</p>
                   </div>
                 </Link>
               ) : (
@@ -224,10 +241,10 @@ export default function PaymentLogDetailPage() {
               )}
               {log.linkedClientId ? (
                 <Link href={`/admin-portal/clients/${log.linkedClientId}`} className="block">
-                  <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-3 hover:border-blue-400 transition-colors">
+                  <div className="rounded-lg border border-primary/20 bg-primary/10 p-3 hover:border-primary/40 transition-colors">
                     <p className="text-xs text-muted-foreground uppercase">Client</p>
                     <p className="font-semibold mt-0.5">{log.linkedClientName || log.linkedClientId}</p>
-                    <p className="text-xs text-blue-700 mt-1">Open in admin →</p>
+                    <p className="text-xs text-primary mt-1">Open in admin →</p>
                   </div>
                 </Link>
               ) : log.customerEmail ? (
@@ -263,7 +280,7 @@ export default function PaymentLogDetailPage() {
               <div className="flex items-start gap-3">
                 {log.paymentMethodType === 'us_bank_account'
                   ? <Building2 className="h-8 w-8 text-emerald-600 flex-shrink-0" />
-                  : <CreditCard className="h-8 w-8 text-blue-600 flex-shrink-0" />}
+                  : <CreditCard className="h-8 w-8 text-primary flex-shrink-0" />}
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field label="Type" value={log.paymentMethodType || '—'} />
                   {log.cardBrand && (

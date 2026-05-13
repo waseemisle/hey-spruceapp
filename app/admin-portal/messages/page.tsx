@@ -9,9 +9,7 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, Search, Trash2, X, Plus, UserPlus, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Chat {
   id: string;
   participants: string[];
@@ -301,34 +299,26 @@ export default function MessagesManagement() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Messages"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Messages" subtitle="Loading conversations…" icon={MessageSquare}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
+    <PortalListPage
+      title="Messages"
+      subtitle="Chat with clients and subcontractors"
+      icon={MessageSquare}
+    >
       {/*
         Locked to viewport — chat is a single-screen workspace, the page
         itself does not scroll. Only the messages list scrolls inside the
         right pane.
       */}
       <div className="flex flex-col h-[calc(100vh-9rem)] gap-4">
-        <div className="flex-shrink-0">
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Messages</h1>
-          <p className="text-muted-foreground mt-1">Chat with clients and subcontractors</p>
-        </div>
-
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Chats List — hidden on mobile when a chat is open */}
           <Card className={`md:col-span-1 flex flex-col min-h-0 ${selectedChat ? 'hidden md:flex' : 'flex'}`}>
@@ -376,7 +366,7 @@ export default function MessagesManagement() {
                         key={chat.id}
                         onClick={() => setSelectedChat(chat.id)}
                         className={`p-3 rounded-lg cursor-pointer hover:bg-muted ${
-                          selectedChat === chat.id ? 'bg-blue-50 border-2 border-blue-500' : 'bg-muted'
+                          selectedChat === chat.id ? 'bg-primary/10 border-2 border-primary' : 'bg-muted'
                         }`}
                       >
                         <div className="font-semibold text-sm">{otherParticipant?.name || 'Unknown'}</div>
@@ -453,7 +443,7 @@ export default function MessagesManagement() {
                           <div
                             className={`max-w-xs px-4 py-2 rounded-lg ${
                               message.senderId === auth.currentUser?.uid
-                                ? 'bg-blue-600 text-white'
+                                ? 'bg-primary text-white'
                                 : 'bg-card text-foreground'
                             }`}
                           >
@@ -627,7 +617,7 @@ export default function MessagesManagement() {
                         <div
                           key={user.id}
                           onClick={() => startChatWithUser(user)}
-                          className="p-4 bg-muted rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 border border-transparent transition-all"
+                          className="p-4 bg-muted rounded-lg cursor-pointer hover:bg-primary/10 hover:border-primary/25 border border-transparent transition-all"
                         >
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
@@ -635,7 +625,7 @@ export default function MessagesManagement() {
                               <div className="text-xs text-muted-foreground mt-1">{user.email}</div>
                             </div>
                             <div className="ml-4">
-                              <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 capitalize">
+                              <span className="px-2 py-1 rounded-full text-xs font-semibold bg-primary/15 text-primary capitalize">
                                 {user.role}
                               </span>
                             </div>
@@ -650,6 +640,6 @@ export default function MessagesManagement() {
           </div>
         )}
       </div>
-    </>
+    </PortalListPage>
   );
 }

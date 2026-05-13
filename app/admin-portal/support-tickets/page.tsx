@@ -45,7 +45,7 @@ function toTime(v: unknown): number {
 
 function statusBadgeClass(s: string) {
   const map: Record<string, string> = {
-    open: 'bg-blue-50 text-blue-800 border-blue-200',
+    open: 'bg-primary/10 text-foreground border-primary/20',
     'in-progress': 'bg-amber-50 text-amber-800 border-amber-200',
     'waiting-on-client': 'bg-orange-50 text-orange-800 border-orange-200',
     'waiting-on-admin': 'bg-purple-50 text-purple-800 border-purple-200',
@@ -272,9 +272,9 @@ export default function AdminSupportTicketsPage() {
       >
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-            <p className="text-xs text-blue-700 opacity-75">Open Tickets</p>
-            <p className="text-xl font-bold text-blue-900">{stats.open}</p>
+          <div className="rounded-xl border border-primary/15 bg-primary/10 p-4">
+            <p className="text-xs text-primary opacity-75">Open Tickets</p>
+            <p className="text-xl font-bold text-foreground">{stats.open}</p>
           </div>
           <div className="rounded-xl border border-orange-100 bg-orange-50 p-4">
             <p className="text-xs text-orange-800 opacity-75">Urgent / High</p>

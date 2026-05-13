@@ -18,9 +18,7 @@ import InvoiceSystemInfo from '@/components/invoice-system-info';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import type { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -373,7 +371,7 @@ export default function ClientInvoiceDetail() {
     const styles: Record<string, string> = {
       draft: 'bg-amber-100 text-amber-800',
       pending_approval: 'bg-amber-100 text-amber-800',
-      sent: 'bg-blue-100 text-blue-800',
+      sent: 'bg-primary/15 text-foreground',
       paid: 'bg-emerald-100 text-emerald-800',
       disputed: 'bg-red-100 text-red-800',
       overdue: 'bg-red-100 text-red-800',
@@ -395,18 +393,11 @@ export default function ClientInvoiceDetail() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Invoice" subtitle="Loading…" icon={Receipt}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -590,7 +581,7 @@ export default function ClientInvoiceDetail() {
               {invoice.completionImages && invoice.completionImages.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4 text-blue-600" />
+                    <ImageIcon className="h-4 w-4 text-primary" />
                     Completion Images ({invoice.completionImages.length})
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

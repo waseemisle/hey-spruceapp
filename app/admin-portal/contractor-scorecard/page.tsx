@@ -8,9 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Users, Award } from 'lucide-react';
 import Link from 'next/link';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Subcontractor {
   id: string;
   uid: string;
@@ -88,20 +86,14 @@ export default function ContractorScorecardPage() {
   }, [subcontractors, tab]);
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero
-          title="Contractor Scorecard"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="space-y-6 max-w-4xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-bold">Contractor Scorecard</h1>
-          <p className="text-muted-foreground">Quality, engagement, and price scores by contractor</p>
-        </div>
+    <PortalListPage
+      title="Contractor Scorecard"
+      subtitle="Quality, engagement, and price scores by contractor"
+      icon={Award}
+    >
+      <div className="mx-auto max-w-4xl space-y-6">
 
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-wrap gap-2">
           {(['all', 'reviewed', 'starred', 'requested'] as const).map((t) => (
             <Button key={t} variant={tab === t ? 'default' : 'outline'} size="sm" onClick={() => setTab(t)}>
               {t === 'all' && 'All'}
@@ -152,7 +144,6 @@ export default function ContractorScorecardPage() {
           </Card>
         )}
       </div>
-          </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

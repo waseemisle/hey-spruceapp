@@ -6,12 +6,10 @@ import Link from 'next/link';
 import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Download, ExternalLink, Mail, Loader2, Landmark, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, Mail, Loader2, Landmark, AlertCircle, User } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Subcontractor {
@@ -104,11 +102,11 @@ function getInitials(name: string): string {
 function WoStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     pending:   { label: 'Pending',   cls: 'bg-yellow-100 text-yellow-700' },
-    approved:  { label: 'Approved',  cls: 'bg-blue-100 text-blue-700' },
+    approved:  { label: 'Approved',  cls: 'bg-primary/15 text-primary' },
     bidding:   { label: 'Bidding',   cls: 'bg-purple-100 text-purple-700' },
     quotes_received: { label: 'Quotes In', cls: 'bg-indigo-100 text-indigo-700' },
     to_be_started: { label: 'To Be Started', cls: 'bg-cyan-100 text-cyan-700' },
-    assigned:  { label: 'Assigned',  cls: 'bg-blue-100 text-blue-700' },
+    assigned:  { label: 'Assigned',  cls: 'bg-primary/15 text-primary' },
     accepted_by_subcontractor: { label: 'Accepted', cls: 'bg-teal-100 text-teal-700' },
     completed: { label: 'Completed', cls: 'bg-green-100 text-green-700' },
     rejected:  { label: 'Rejected',  cls: 'bg-red-100 text-red-700' },
@@ -279,18 +277,11 @@ export default function SubcontractorDetailPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Subcontractor" subtitle="Loading…" icon={User}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -387,7 +378,7 @@ export default function SubcontractorDetailPage() {
         {/* Bank Account Information */}
         <div className="bg-card rounded-xl border border-border shadow-sm p-5">
           <div className="flex items-center gap-2 mb-3">
-            <Landmark className="h-4 w-4 text-blue-600" />
+            <Landmark className="h-4 w-4 text-primary" />
             <h3 className="font-semibold text-foreground text-sm">ACH Payment Information</h3>
           </div>
           {sub.bankAccount ? (
@@ -428,7 +419,7 @@ export default function SubcontractorDetailPage() {
               label: 'Total Jobs',
               value: stats.total,
               sub: 'All time',
-              top: 'bg-blue-500',
+              top: 'bg-primary/100',
             },
             {
               label: 'Active Jobs',
@@ -489,7 +480,7 @@ export default function SubcontractorDetailPage() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all flex items-center gap-1.5 ${
                     activeTab === tab.key
-                      ? 'bg-card text-blue-600 shadow-sm'
+                      ? 'bg-card text-primary shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -499,7 +490,7 @@ export default function SubcontractorDetailPage() {
                       activeTab === tab.key
                         ? tab.danger
                           ? 'bg-red-100 text-red-600'
-                          : 'bg-blue-100 text-blue-600'
+                          : 'bg-primary/15 text-primary'
                         : tab.danger
                         ? 'bg-red-50 text-red-500'
                         : 'bg-muted text-muted-foreground'
@@ -539,7 +530,7 @@ export default function SubcontractorDetailPage() {
                 ) : (
                   filtered.map((wo) => (
                     <tr key={wo.id} className="hover:bg-muted transition-colors">
-                      <td className="px-4 py-3.5 font-semibold text-blue-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 font-semibold text-primary whitespace-nowrap">
                         {wo.workOrderNumber || wo.id.slice(0, 8).toUpperCase()}
                       </td>
                       <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">

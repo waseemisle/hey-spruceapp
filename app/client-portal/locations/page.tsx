@@ -30,7 +30,6 @@ import Link from 'next/link';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatCards } from '@/components/ui/stat-cards';
 
-import { PageContainer } from '@/components/ui/page-container';
 import { PortalListPage } from '@/components/ui/portal-list-page';
 interface WorkOrder {
   id: string;
@@ -871,7 +870,7 @@ export default function ClientLocations() {
                         <li key={wo.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted transition-colors">
                           <Link
                             href={`/client-portal/work-orders/${wo.id}`}
-                            className="text-sm text-blue-600 hover:underline font-medium truncate flex-1"
+                            className="text-sm text-primary hover:underline font-medium truncate flex-1"
                             onClick={() => setShowModal(false)}
                           >
                             {wo.workOrderNumber ? `${wo.workOrderNumber} — ` : ''}{wo.title || 'Work order'}

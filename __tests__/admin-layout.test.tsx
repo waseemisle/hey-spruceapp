@@ -1,27 +1,60 @@
+import type { ReactNode } from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useRouter } from 'next/navigation'
-import { onAuthStateChanged } from 'firebase/auth'
+import { onAuthStateChanged } from '@/lib/firebase-auth'
 import { getDoc } from 'firebase/firestore'
 import AdminLayout from '@/components/admin-layout'
+import { ViewControlsProvider } from '@/contexts/view-controls-context'
+
+function renderAdminLayout(children: ReactNode = <div>Test Content</div>) {
+  return render(
+    <ViewControlsProvider>
+      <AdminLayout>{children}</AdminLayout>
+    </ViewControlsProvider>,
+  )
+}
 
 // Mock the hooks and functions
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(),
+  usePathname: jest.fn(() => '/admin-portal'),
 }))
 
-jest.mock('firebase/auth', () => ({
+jest.mock('@/lib/firebase-auth', () => ({
   onAuthStateChanged: jest.fn(),
 }))
 
+jest.mock('@/lib/support-ticket-snapshots', () => ({
+  subscribeAdminUnassignedOpenSupportTicketCount: jest.fn((_db: unknown, onNext: (n: number) => void) => {
+    onNext(0);
+    return jest.fn();
+  }),
+}));
+
 jest.mock('firebase/firestore', () => ({
   getDoc: jest.fn(),
-  doc: jest.fn(),
+  doc: jest.fn(() => ({})),
+  collection: jest.fn(() => ({})),
+  query: jest.fn(() => ({})),
+  where: jest.fn(() => ({})),
+  orderBy: jest.fn(() => ({})),
+  limit: jest.fn(() => ({})),
+  onSnapshot: jest.fn((_q: unknown, onNext: (snap: { size: number; docs: unknown[] }) => void) => {
+    if (typeof onNext === 'function') {
+      onNext({ size: 0, docs: [] });
+    }
+    return jest.fn();
+  }),
+  getDocs: jest.fn(),
+  updateDoc: jest.fn(),
+  serverTimestamp: jest.fn(() => new Date()),
 }))
 
 jest.mock('@/lib/firebase', () => ({
   auth: {
     signOut: jest.fn(),
+    currentUser: null,
   },
   db: {},
 }))
@@ -39,19 +72,20 @@ describe('AdminLayout', () => {
   })
 
   it('shows loading state initially', () => {
-    mockOnAuthStateChanged.mockImplementation((callback) => {
-      // Don't call callback immediately to show loading state
+    mockOnAuthStateChanged.mockImplementation((_auth, nextOrObserver) => {
+      if (typeof nextOrObserver !== 'function') return jest.fn()
       return jest.fn()
     })
 
-    render(<AdminLayout><div>Test Content</div></AdminLayout>)
+    renderAdminLayout()
     
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
-  it('redirects non-admin users to login', () => {
-    mockOnAuthStateChanged.mockImplementation((callback) => {
-      callback({ uid: 'user-uid', email: 'user@test.com' } as any)
+  it('redirects non-admin users to login', async () => {
+    mockOnAuthStateChanged.mockImplementation((_auth, nextOrObserver) => {
+      if (typeof nextOrObserver !== 'function') return jest.fn()
+      ;(nextOrObserver as (u: unknown) => void)({ uid: 'user-uid', email: 'user@test.com' } as any)
       return jest.fn()
     })
 
@@ -59,16 +93,19 @@ describe('AdminLayout', () => {
       exists: () => false,
     } as any)
 
-    render(<AdminLayout><div>Test Content</div></AdminLayout>)
+    renderAdminLayout()
     
-    expect(mockPush).toHaveBeenCalledWith('/portal-login')
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith('/portal-login')
+    })
   })
 
   it('renders admin layout for authenticated admin', async () => {
     const mockUser = { uid: 'admin-uid', email: 'admin@test.com' }
     
-    mockOnAuthStateChanged.mockImplementation((callback) => {
-      callback(mockUser as any)
+    mockOnAuthStateChanged.mockImplementation((_auth, nextOrObserver) => {
+      if (typeof nextOrObserver !== 'function') return jest.fn()
+      ;(nextOrObserver as (u: unknown) => void)(mockUser as any)
       return jest.fn()
     })
 
@@ -77,10 +114,10 @@ describe('AdminLayout', () => {
       data: () => ({ role: 'admin', fullName: 'Admin User' }),
     } as any)
 
-    render(<AdminLayout><div>Test Content</div></AdminLayout>)
+    renderAdminLayout()
     
     await waitFor(() => {
-      expect(screen.getByText('Admin Portal')).toBeInTheDocument()
+      expect(screen.getByText('Dashboard')).toBeInTheDocument()
     })
     
     expect(screen.getByText('admin@test.com')).toBeInTheDocument()
@@ -90,8 +127,9 @@ describe('AdminLayout', () => {
   it('renders all navigation menu items', async () => {
     const mockUser = { uid: 'admin-uid', email: 'admin@test.com' }
     
-    mockOnAuthStateChanged.mockImplementation((callback) => {
-      callback(mockUser as any)
+    mockOnAuthStateChanged.mockImplementation((_auth, nextOrObserver) => {
+      if (typeof nextOrObserver !== 'function') return jest.fn()
+      ;(nextOrObserver as (u: unknown) => void)(mockUser as any)
       return jest.fn()
     })
 
@@ -100,29 +138,22 @@ describe('AdminLayout', () => {
       data: () => ({ role: 'admin', fullName: 'Admin User' }),
     } as any)
 
-    render(<AdminLayout><div>Test Content</div></AdminLayout>)
+    renderAdminLayout()
     
     await waitFor(() => {
       expect(screen.getByText('Dashboard')).toBeInTheDocument()
-      expect(screen.getByText('Clients')).toBeInTheDocument()
-      expect(screen.getByText('Subcontractors')).toBeInTheDocument()
-      expect(screen.getByText('Admin Users')).toBeInTheDocument()
-      expect(screen.getByText('Subsidiaries')).toBeInTheDocument()
-      expect(screen.getByText('Locations')).toBeInTheDocument()
       expect(screen.getByText('Work Orders')).toBeInTheDocument()
-      expect(screen.getByText('Recurring Work Orders')).toBeInTheDocument()
       expect(screen.getByText('Quotes')).toBeInTheDocument()
       expect(screen.getByText('Invoices')).toBeInTheDocument()
-      expect(screen.getByText('Scheduled Invoices')).toBeInTheDocument()
-      expect(screen.getByText('Messages')).toBeInTheDocument()
     })
   })
 
   it('toggles sidebar visibility', async () => {
     const mockUser = { uid: 'admin-uid', email: 'admin@test.com' }
     
-    mockOnAuthStateChanged.mockImplementation((callback) => {
-      callback(mockUser as any)
+    mockOnAuthStateChanged.mockImplementation((_auth, nextOrObserver) => {
+      if (typeof nextOrObserver !== 'function') return jest.fn()
+      ;(nextOrObserver as (u: unknown) => void)(mockUser as any)
       return jest.fn()
     })
 
@@ -131,13 +162,13 @@ describe('AdminLayout', () => {
       data: () => ({ role: 'admin', fullName: 'Admin User' }),
     } as any)
 
-    render(<AdminLayout><div>Test Content</div></AdminLayout>)
+    renderAdminLayout()
     
     await waitFor(() => {
-      expect(screen.getByText('Admin Portal')).toBeInTheDocument()
+      expect(screen.getByText('Dashboard')).toBeInTheDocument()
     })
 
-    const toggleButton = screen.getByRole('button', { name: '' }) // Menu/X button
+    const toggleButton = screen.getByRole('button', { name: 'Toggle menu' })
     fireEvent.click(toggleButton)
     
     // Sidebar should be hidden (we can't easily test CSS classes, but the button should change)
@@ -145,11 +176,13 @@ describe('AdminLayout', () => {
   })
 
   it('handles logout', async () => {
+    const user = userEvent.setup()
     const mockUser = { uid: 'admin-uid', email: 'admin@test.com' }
     const mockSignOut = jest.fn()
     
-    mockOnAuthStateChanged.mockImplementation((callback) => {
-      callback(mockUser as any)
+    mockOnAuthStateChanged.mockImplementation((_auth, nextOrObserver) => {
+      if (typeof nextOrObserver !== 'function') return jest.fn()
+      ;(nextOrObserver as (u: unknown) => void)(mockUser as any)
       return jest.fn()
     })
 
@@ -158,30 +191,32 @@ describe('AdminLayout', () => {
       data: () => ({ role: 'admin', fullName: 'Admin User' }),
     } as any)
 
-    // Mock auth.signOut
+    // Mock auth.signOut (module is fully mocked below)
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- test-only patch of mocked module
     const { auth } = require('@/lib/firebase')
     auth.signOut = mockSignOut
 
-    render(<AdminLayout><div>Test Content</div></AdminLayout>)
+    renderAdminLayout()
     
     await waitFor(() => {
-      expect(screen.getByText('Admin Portal')).toBeInTheDocument()
+      expect(screen.getByText('Dashboard')).toBeInTheDocument()
     })
 
-    const logoutButton = screen.getByRole('button', { name: /logout/i })
-    fireEvent.click(logoutButton)
+    await user.click(screen.getByRole('button', { name: 'Open profile menu' }))
+    await user.click(await screen.findByText('Sign out'))
     
     expect(mockSignOut).toHaveBeenCalled()
     expect(mockPush).toHaveBeenCalledWith('/')
   })
 
   it('redirects unauthenticated users to login', () => {
-    mockOnAuthStateChanged.mockImplementation((callback) => {
-      callback(null) // No user
+    mockOnAuthStateChanged.mockImplementation((_auth, nextOrObserver) => {
+      if (typeof nextOrObserver !== 'function') return jest.fn()
+      ;(nextOrObserver as (u: unknown) => void)(null)
       return jest.fn()
     })
 
-    render(<AdminLayout><div>Test Content</div></AdminLayout>)
+    renderAdminLayout()
     
     expect(mockPush).toHaveBeenCalledWith('/portal-login')
   })

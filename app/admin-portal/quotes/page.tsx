@@ -17,9 +17,7 @@ import { useSearchParams } from 'next/navigation';
 import { notifyClientOfQuoteSent } from '@/lib/notifications';
 import { useViewControls } from '@/contexts/view-controls-context';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface LineItem {
   description: string;
   quantity: number;
@@ -561,7 +559,7 @@ function QuotesContent() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'text-yellow-600 bg-yellow-50';
-      case 'sent_to_client': return 'text-blue-600 bg-blue-50';
+      case 'sent_to_client': return 'text-primary bg-primary/10';
       case 'accepted': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
       default: return 'text-muted-foreground bg-muted';
@@ -570,32 +568,27 @@ function QuotesContent() {
 
   return (
     <>
-      <PageContainer>
-        <PortalHero
-          title="Quotes"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Quotes</h1>
-            <p className="text-muted-foreground mt-2">
-              {workOrderIdFilter
-                ? 'Showing quotes for this work order'
-                : 'Review quotes from subcontractors and forward to clients'}
-            </p>
-            {workOrderIdFilter && (
-              <a href="/admin-portal/quotes" className="text-sm text-blue-600 hover:underline mt-1 inline-block">
-                View all quotes
-              </a>
-            )}
-          </div>
+      <PortalListPage
+        title="Quotes"
+        subtitle={
+          workOrderIdFilter
+            ? 'Showing quotes for this work order. Open “View all quotes” below to see the full list.'
+            : 'Review quotes from subcontractors and forward to clients.'
+        }
+        icon={FileText}
+        heroAction={
           <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Quote
           </Button>
-        </div>
+        }
+      >
+      <div className="space-y-6">
+        {workOrderIdFilter && (
+          <a href="/admin-portal/quotes" className="text-sm text-primary hover:underline inline-block">
+            View all quotes
+          </a>
+        )}
 
         {/* Search Bar */}
         <div className="relative">
@@ -664,7 +657,7 @@ function QuotesContent() {
                     <td className="px-4 py-3 text-sm">
                       <div className="font-medium text-foreground">{quote.workOrderTitle}</div>
                       {quote.workOrderNumber && quote.workOrderId ? (
-                        <Link href={`/admin-portal/work-orders/${quote.workOrderId}`} className="text-xs text-blue-600 hover:underline mt-0.5 inline-block">
+                        <Link href={`/admin-portal/work-orders/${quote.workOrderId}`} className="text-xs text-primary hover:underline mt-0.5 inline-block">
                           {quote.workOrderNumber}
                         </Link>
                       ) : (
@@ -727,7 +720,7 @@ function QuotesContent() {
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">{quote.workOrderTitle}</p>
                     {quote.workOrderNumber && quote.workOrderId ? (
-                      <Link href={`/admin-portal/work-orders/${quote.workOrderId}`} className="text-xs text-blue-600 hover:underline truncate inline-block max-w-full">
+                      <Link href={`/admin-portal/work-orders/${quote.workOrderId}`} className="text-xs text-primary hover:underline truncate inline-block max-w-full">
                         {quote.workOrderNumber}
                       </Link>
                     ) : quote.workOrderNumber ? (
@@ -948,7 +941,7 @@ function QuotesContent() {
                           <div className="md:col-span-2 flex items-end gap-2">
                             <div className="flex-1">
                               <Label className="text-xs">Amount</Label>
-                              <div className="text-lg font-bold text-blue-600">
+                              <div className="text-lg font-bold text-primary">
                                 ${(item.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </div>
                             </div>
@@ -968,10 +961,10 @@ function QuotesContent() {
                   </div>
 
                   {/* Total */}
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                  <div className="mt-4 p-4 bg-primary/10 rounded-lg">
                     <div className="flex justify-between items-center">
                       <span className="text-lg font-semibold">Total Amount:</span>
-                      <span className="text-2xl font-bold text-blue-600">
+                      <span className="text-2xl font-bold text-primary">
                         ${(calculateTotal() || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
@@ -1010,7 +1003,7 @@ function QuotesContent() {
           </div>
         )}
       </div>
-          </PageContainer>
+      </PortalListPage>
     </>
   );
 }

@@ -9,9 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { FileText, Calendar, DollarSign, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Quote {
   id: string;
   workOrderId: string;
@@ -86,7 +84,7 @@ export default function SubcontractorQuotes() {
     }
     // Pending until the client approves (with or without admin forward to client)
     if (quote.forwardedToClient) {
-      return { style: 'bg-blue-100 text-blue-800', icon: Clock, text: 'Request Pending' };
+      return { style: 'bg-primary/15 text-foreground', icon: Clock, text: 'Request Pending' };
     }
     return { style: 'bg-amber-100 text-amber-800', icon: Clock, text: 'Request Pending' };
   };
@@ -119,29 +117,25 @@ export default function SubcontractorQuotes() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Quotes"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage
+        title="My Quotes"
+        subtitle="Track your submitted quotes and their status"
+        icon={FileText}
+      >
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
+    <PortalListPage
+      title="My Quotes"
+      subtitle="Track your submitted quotes and their status"
+      icon={FileText}
+    >
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Quotes</h1>
-          <p className="text-muted-foreground mt-2">Track your submitted quotes and their status</p>
-        </div>
-
         {/* Search Bar */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -237,7 +231,7 @@ export default function SubcontractorQuotes() {
                   </div>
 
                   {quote.forwardedToClient && (
-                    <div className="rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                    <div className="rounded-md bg-primary/10 px-3 py-2 text-xs text-foreground">
                       Sent to client for approval
                     </div>
                   )}
@@ -267,6 +261,6 @@ export default function SubcontractorQuotes() {
           </div>
         )}
       </div>
-    </>
+    </PortalListPage>
   );
 }

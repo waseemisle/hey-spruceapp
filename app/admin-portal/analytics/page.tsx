@@ -7,9 +7,7 @@ import { formatMoney } from '@/lib/money';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ClipboardList, FileText, Users, Receipt, DollarSign, TrendingUp, Building2 } from 'lucide-react';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 function toDate(val: any): Date | null {
   if (!val) return null;
   if (val?.toDate) return val.toDate();
@@ -116,28 +114,21 @@ export default function AnalyticsExecutiveDashboard() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Analytics"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Analytics" subtitle="Loading…" icon={TrendingUp}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
-      <div className="space-y-8 max-w-6xl mx-auto">
-        <div>
-          <h1 className="text-2xl font-bold">Analytics — Executive Dashboard</h1>
-          <p className="text-muted-foreground">KPIs and financial overview</p>
-        </div>
+    <PortalListPage
+      title="Analytics — Executive Dashboard"
+      subtitle="KPIs and financial overview"
+      icon={TrendingUp}
+    >
+      <div className="mx-auto max-w-6xl space-y-8">
 
         {/* KPI cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -298,6 +289,6 @@ export default function AnalyticsExecutiveDashboard() {
           </CardContent>
         </Card>
       </div>
-    </>
+    </PortalListPage>
   );
 }

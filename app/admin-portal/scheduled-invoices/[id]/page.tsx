@@ -1,8 +1,6 @@
 'use client';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 /**
  * Admin → Scheduled Invoice detail
  *
@@ -266,18 +264,11 @@ export default function ScheduledInvoiceDetailPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Scheduled invoice" subtitle="Loading…" icon={Receipt}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -369,7 +360,7 @@ export default function ScheduledInvoiceDetailPage() {
                 size="sm"
                 onClick={handleExecuteNow}
                 disabled={!!actioning}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primary/90"
               >
                 {actioning === 'execute' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Zap className="h-4 w-4 mr-2" />}
                 Execute Now
@@ -474,7 +465,7 @@ export default function ScheduledInvoiceDetailPage() {
                     <span className={`ml-2 font-mono text-sm px-2 py-0.5 rounded tabular-nums ${
                       countdown === 'Now'
                         ? 'bg-green-100 text-green-700 animate-pulse'
-                        : 'bg-blue-50 text-blue-700'
+                        : 'bg-primary/10 text-primary'
                     }`}>
                       {countdown}
                     </span>
@@ -549,7 +540,7 @@ export default function ScheduledInvoiceDetailPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium">{fmtDate(item.date)}</p>
                           {item.kind === 'upcoming' && (
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
                               Upcoming
                             </span>
                           )}
@@ -568,7 +559,7 @@ export default function ScheduledInvoiceDetailPage() {
                         {e?.invoiceNumber && (
                           <p className="text-xs text-muted-foreground mt-0.5">
                             Created invoice{' '}
-                            <Link href={`/admin-portal/invoices/${e.invoiceId}`} className="text-blue-600 underline font-mono">
+                            <Link href={`/admin-portal/invoices/${e.invoiceId}`} className="text-primary underline font-mono">
                               {e.invoiceNumber}
                             </Link>
                             {e.totalAmount ? <> · {formatMoney(e.totalAmount)}</> : null}

@@ -17,9 +17,7 @@ import { RecurringWorkOrder } from '@/types';
 import { formatAddress } from '@/lib/utils';
 import Link from 'next/link';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 export default function ClientRecurringWorkOrderDetails() {
   const { auth, db } = useFirebaseInstance();
   const router = useRouter();
@@ -132,18 +130,11 @@ export default function ClientRecurringWorkOrderDetails() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Recurring work order" subtitle="Loading…" icon={RotateCcw}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 

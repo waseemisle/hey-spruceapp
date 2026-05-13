@@ -20,9 +20,7 @@ import { toast } from 'sonner';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
 import { createWorkOrderGroup } from '@/lib/work-order-groups';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface WorkOrder {
   id: string;
   workOrderNumber?: string;
@@ -68,7 +66,7 @@ interface Subcontractor {
 
 const STATUS_CONFIG: Record<string, { label: string; className: string; dot: string }> = {
   pending: { label: 'Pending', className: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
-  approved: { label: 'Approved', className: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' },
+  approved: { label: 'Approved', className: 'bg-primary/10 text-primary border-primary/20', dot: 'bg-primary/100' },
   bidding: { label: 'Bidding', className: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
   assigned: { label: 'Assigned', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
   accepted_by_subcontractor: { label: 'Scheduled', className: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
@@ -426,9 +424,9 @@ function ClientWorkOrdersContent() {
     const normalized = normalizeStatus(status);
     const styles = {
       pending: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-blue-100 text-blue-800',
-      quotes_received: 'bg-blue-100 text-blue-800',
-      bidding: 'bg-blue-100 text-blue-800',
+      approved: 'bg-primary/15 text-foreground',
+      quotes_received: 'bg-primary/15 text-foreground',
+      bidding: 'bg-primary/15 text-foreground',
       assigned: 'bg-green-100 text-green-800',
       accepted_by_subcontractor: 'bg-green-100 text-green-800',
       pending_invoice: 'bg-orange-100 text-orange-800',
@@ -966,18 +964,11 @@ function ClientWorkOrdersContent() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Work Orders"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary"></div>
+      <PortalListPage title="Work Orders" subtitle="Loading…" icon={ClipboardList}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -989,7 +980,7 @@ function ClientWorkOrdersContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              {workOrderType === 'archive' ? <Archive className="h-7 w-7 text-muted-foreground" /> : <ClipboardList className="h-7 w-7 text-blue-600" />}
+              {workOrderType === 'archive' ? <Archive className="h-7 w-7 text-muted-foreground" /> : <ClipboardList className="h-7 w-7 text-primary" />}
               {workOrderType === 'maintenance' ? 'Maintenance Requests Work Orders' : workOrderType === 'archive' ? 'Archived Work Orders' : 'Work Orders'}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
@@ -1031,7 +1022,7 @@ function ClientWorkOrdersContent() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total', value: stats.total, icon: ClipboardList, color: 'text-blue-600 bg-blue-50 border-blue-100' },
+            { label: 'Total', value: stats.total, icon: ClipboardList, color: 'text-primary bg-primary/10 border-primary/15' },
             { label: 'Open / Active', value: stats.open, icon: BarChart3, color: 'text-amber-600 bg-amber-50 border-amber-100' },
             { label: 'Completed', value: stats.completed, icon: ClipboardCheck, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
             { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-purple-600 bg-purple-50 border-purple-100' },
@@ -1170,7 +1161,7 @@ function ClientWorkOrdersContent() {
                           <p className="text-xs text-muted-foreground">{workOrder.workOrderNumber}</p>
                         )}
                         {workOrder.isCombinedPrimary && (workOrder.combinedWorkOrderCount || 0) > 1 && (
-                          <p className="text-[11px] text-blue-700 mt-0.5">
+                          <p className="text-[11px] text-primary mt-0.5">
                             Combined bundle · {workOrder.combinedWorkOrderCount} work orders
                           </p>
                         )}
@@ -1266,7 +1257,7 @@ function ClientWorkOrdersContent() {
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-foreground truncate">{workOrder.title}</p>
                           {workOrder.isCombinedPrimary && (workOrder.combinedWorkOrderCount || 0) > 1 && (
-                            <p className="text-[11px] text-blue-700 mt-0.5">
+                            <p className="text-[11px] text-primary mt-0.5">
                               Combined bundle · {workOrder.combinedWorkOrderCount} work orders
                             </p>
                           )}
@@ -1553,9 +1544,9 @@ function ClientWorkOrdersContent() {
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-4">
               {workOrderToShare && (
-                <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                  <h3 className="font-semibold text-blue-900 mb-1">{workOrderToShare.title}</h3>
-                  <p className="text-sm text-blue-700">{workOrderToShare.workOrderNumber}</p>
+                <div className="mb-4 p-4 bg-primary/10 rounded-xl border border-primary/20">
+                  <h3 className="font-semibold text-foreground mb-1">{workOrderToShare.title}</h3>
+                  <p className="text-sm text-primary">{workOrderToShare.workOrderNumber}</p>
                 </div>
               )}
 
@@ -1580,7 +1571,7 @@ function ClientWorkOrdersContent() {
                       const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                       setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                     }}
-                    className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 shrink-0"
+                    className="h-4 w-4 text-primary border-border rounded focus:ring-ring shrink-0"
                   />
                   <label htmlFor="selectAll" className="text-sm font-medium text-foreground truncate">
                     Select All ({subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length})
@@ -1602,7 +1593,7 @@ function ClientWorkOrdersContent() {
                         selectedSubcontractors.includes(sub.id)
                           ? sub.matchesCategory
                             ? 'bg-green-50 border-green-400 ring-2 ring-green-200'
-                            : 'bg-blue-50 border-blue-300'
+                            : 'bg-primary/10 border-primary/25'
                           : sub.matchesCategory
                           ? 'bg-green-50 border-green-300 hover:border-green-400'
                           : 'bg-white border-border hover:bg-muted'
@@ -1613,7 +1604,7 @@ function ClientWorkOrdersContent() {
                         type="checkbox"
                         checked={selectedSubcontractors.includes(sub.id)}
                         onChange={() => toggleSubcontractorSelection(sub.id)}
-                        className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500"
+                        className="h-4 w-4 text-primary border-border rounded focus:ring-ring"
                         onClick={(e) => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">

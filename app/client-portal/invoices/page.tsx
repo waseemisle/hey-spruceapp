@@ -195,7 +195,7 @@ function ClientInvoicesInner() {
   const getStatusBadge = (status: string) => {
     const styles = {
       draft: 'bg-amber-50 text-amber-700 border-amber-200',
-      sent: 'bg-blue-50 text-blue-700 border-blue-200',
+      sent: 'bg-primary/10 text-primary border-primary/20',
       paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     };
     return styles[status as keyof typeof styles] || 'bg-muted text-foreground border-border';
@@ -250,7 +250,7 @@ function ClientInvoicesInner() {
       >
 
         {workOrderIdFilter && (
-          <div className="rounded-xl border border-blue-100 bg-blue-50/80 px-4 py-3 text-sm text-blue-900">
+          <div className="rounded-xl border border-primary/15 bg-primary/10 px-4 py-3 text-sm text-foreground">
             Showing invoices for this work order ·{' '}
             <Link href={`/client-portal/work-orders/${workOrderIdFilter}`} className="font-medium underline">
               Back to work order
@@ -298,14 +298,14 @@ function ClientInvoicesInner() {
             </Link>
           </div>
         ) : (
-          <div className="rounded-xl border p-3.5 flex items-center gap-3 bg-blue-50 border-blue-100 text-blue-700">
-            <CreditCard className="h-5 w-5 flex-shrink-0 text-blue-500" />
+          <div className="rounded-xl border p-3.5 flex items-center gap-3 bg-primary/10 border-primary/15 text-primary">
+            <CreditCard className="h-5 w-5 flex-shrink-0 text-primary" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium">Save a card for automatic payments</p>
               <p className="text-xs opacity-75">Set up auto-pay so invoices are charged automatically</p>
             </div>
             <Link href="/client-portal/payment-methods">
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700 shrink-0 text-xs">
+              <Button size="sm" className="bg-primary hover:bg-primary/90 shrink-0 text-xs">
                 Set Up
               </Button>
             </Link>
@@ -345,7 +345,7 @@ function ClientInvoicesInner() {
                 key={invoice.id}
                 className="bg-card rounded-xl border border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
               >
-                <div className="h-1 w-full bg-gradient-to-r from-blue-500 to-blue-700" />
+                <div className="h-1 w-full bg-gradient-to-r from-primary to-violet-700" />
                 <div className="p-5 space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -395,7 +395,7 @@ function ClientInvoicesInner() {
                             href={invoice.stripeReceiptUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
                           >
                             Open receipt <ExternalLink className="h-3 w-3" />
                           </a>

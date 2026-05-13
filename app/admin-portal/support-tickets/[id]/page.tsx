@@ -29,6 +29,7 @@ import {
   Clock,
   User,
   Link as LinkIcon,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { SupportTicket, TicketComment, SupportTicketStatus, SupportTicketPriority, SupportTicketCategory } from '@/types';
@@ -41,7 +42,8 @@ import {
 import { supportTicketPost } from '@/lib/support-ticket-api-client';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalDetailGlass } from '@/components/ui/portal-detail-glass';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 const ALL_STATUSES: SupportTicketStatus[] = [
   'open',
   'in-progress',
@@ -378,13 +380,26 @@ export default function AdminSupportTicketDetailPage() {
     ];
   }, [ticket, comments]);
 
-  if (loading || !ticket) {
+  if (loading) {
     return (
-      <>
+      <PortalListPage title="Support ticket" subtitle="Loading…" icon={MessageSquare}>
         <div className="flex justify-center py-24">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-      </>
+      </PortalListPage>
+    );
+  }
+
+  if (!ticket) {
+    return (
+      <PortalListPage title="Support ticket" subtitle="Not found" icon={MessageSquare}>
+        <div className="py-12 text-center">
+          <p className="mb-4 text-muted-foreground">This ticket could not be loaded.</p>
+          <Button asChild variant="outline">
+            <Link href="/admin-portal/support-tickets">Back to tickets</Link>
+          </Button>
+        </div>
+      </PortalListPage>
     );
   }
 
@@ -397,17 +412,28 @@ export default function AdminSupportTicketDetailPage() {
 
   return (
     <>
-      <PageContainer>
-        <div className="flex items-center gap-3 mb-4">
-          <Link href="/admin-portal/support-tickets">
-            <Button variant="ghost" size="icon" aria-label="Back">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <span className="font-mono text-sm text-muted-foreground">{ticket.ticketNumber}</span>
-        </div>
+      <div className="space-y-6">
+        <PortalDetailGlass>
+          <nav
+            className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground"
+            aria-label="Breadcrumb"
+          >
+            <Link href="/admin-portal/support-tickets" className="font-medium transition-colors hover:text-foreground">
+              Support tickets
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" aria-hidden />
+            <span className="truncate font-mono text-xs text-foreground/90">{ticket.ticketNumber}</span>
+          </nav>
+          <div className="flex items-center gap-3">
+            <Link href="/admin-portal/support-tickets">
+              <Button variant="ghost" size="icon" aria-label="Back">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </PortalDetailGlass>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4">
             <div>
               <Input
@@ -435,7 +461,7 @@ export default function AdminSupportTicketDetailPage() {
                   type="button"
                   onClick={() => setTab(t)}
                   className={`pb-2 px-1 text-sm font-medium capitalize border-b-2 -mb-px transition-colors ${
-                    tab === t ? 'border-blue-600 text-blue-700' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    tab === t ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {t === 'comments' && <MessageSquare className="inline h-4 w-4 mr-1" />}
@@ -470,7 +496,7 @@ export default function AdminSupportTicketDetailPage() {
                         {(c.attachments?.length ?? 0) > 0 && (
                           <div className="mt-2 flex flex-wrap gap-2">
                             {c.attachments!.map((a) => (
-                              <a key={a.id} href={a.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                              <a key={a.id} href={a.fileUrl} target="_blank" rel="noreferrer" className="text-xs text-primary underline">
                                 {a.fileName}
                               </a>
                             ))}
@@ -609,7 +635,7 @@ export default function AdminSupportTicketDetailPage() {
               <p className="text-sm font-medium">{ticket.submittedByName}</p>
               <p className="text-xs text-muted-foreground">{ticket.submittedByEmail}</p>
               <Badge variant="outline" className="capitalize">{ticket.submittedByRole}</Badge>
-              <Link href={submitterProfileHref} className="text-xs text-blue-600 block mt-2">
+              <Link href={submitterProfileHref} className="text-xs text-primary block mt-2">
                 Open directory →
               </Link>
             </div>
@@ -619,17 +645,17 @@ export default function AdminSupportTicketDetailPage() {
                 <LinkIcon className="h-4 w-4" /> Related
               </h3>
               {ticket.relatedWorkOrderId && (
-                <Link className="text-sm text-blue-600 block" href={`/admin-portal/work-orders/${ticket.relatedWorkOrderId}`}>
+                <Link className="text-sm text-primary block" href={`/admin-portal/work-orders/${ticket.relatedWorkOrderId}`}>
                   WO {ticket.relatedWorkOrderNumber || ticket.relatedWorkOrderId}
                 </Link>
               )}
               {ticket.relatedInvoiceId && (
-                <Link className="text-sm text-blue-600 block" href={`/admin-portal/invoices/${ticket.relatedInvoiceId}`}>
+                <Link className="text-sm text-primary block" href={`/admin-portal/invoices/${ticket.relatedInvoiceId}`}>
                   Invoice {ticket.relatedInvoiceNumber || ticket.relatedInvoiceId}
                 </Link>
               )}
               {ticket.relatedQuoteId && (
-                <Link className="text-sm text-blue-600 block" href={`/admin-portal/quotes`}>
+                <Link className="text-sm text-primary block" href={`/admin-portal/quotes`}>
                   Quote {ticket.relatedQuoteId}
                 </Link>
               )}
@@ -682,7 +708,7 @@ export default function AdminSupportTicketDetailPage() {
             </div>
           </div>
         </div>
-      </PageContainer>
+      </div>
     </>
   );
 }

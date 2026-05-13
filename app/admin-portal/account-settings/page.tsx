@@ -21,9 +21,7 @@ import {
   User, Mail, Phone, Bell, Lock, Camera, Save, ArrowLeft, ShieldCheck,
 } from 'lucide-react';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 export default function AdminAccountSettings() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -167,28 +165,22 @@ export default function AdminAccountSettings() {
   const initials = (fullName || email || 'A').slice(0, 2).toUpperCase();
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero
-          title="Account Settings"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="max-w-4xl mx-auto space-y-4 sm:space-y-5 pb-16">
-
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Account Settings</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage your profile and security settings</p>
-          </div>
-        </div>
+    <PortalListPage
+      title="Account Settings"
+      subtitle="Manage your profile and security settings"
+      icon={User}
+      heroAction={
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label="Go back"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+      }
+    >
+      <div className="mx-auto max-w-4xl space-y-4 pb-16 sm:space-y-5">
 
         {loading ? (
           <div className="space-y-6">
@@ -229,14 +221,14 @@ export default function AdminAccountSettings() {
             {/* Profile Photo */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
-                <Camera className="h-5 w-5 text-blue-600" />
+                <Camera className="h-5 w-5 text-primary" />
                 <h2 className="text-base font-semibold text-foreground">Profile Photo</h2>
               </div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
                 <Avatar className="h-20 w-20 sm:h-24 sm:w-24 ring-4 ring-gray-100">
                   {photoPreview
                     ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} />
-                    : <AvatarFallback className="text-xl font-bold bg-blue-100 text-blue-700">{initials}</AvatarFallback>
+                    : <AvatarFallback className="text-xl font-bold bg-primary/15 text-primary">{initials}</AvatarFallback>
                   }
                 </Avatar>
                 <div className="space-y-2 w-full sm:w-auto min-w-0">
@@ -256,7 +248,7 @@ export default function AdminAccountSettings() {
             {/* Personal Information */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
-                <User className="h-5 w-5 text-blue-600" />
+                <User className="h-5 w-5 text-primary" />
                 <h2 className="text-base font-semibold text-foreground">Personal Information</h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -298,7 +290,7 @@ export default function AdminAccountSettings() {
                 <div className="space-y-1.5">
                   <Label>Role</Label>
                   <div className="flex items-center gap-2 h-10 px-3 rounded-md border border-border bg-muted">
-                    <ShieldCheck className="h-4 w-4 text-blue-600" />
+                    <ShieldCheck className="h-4 w-4 text-primary" />
                     <span className="text-sm text-foreground font-medium">Admin</span>
                   </div>
                 </div>
@@ -308,7 +300,7 @@ export default function AdminAccountSettings() {
             {/* Notification Preferences */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
-                <Bell className="h-5 w-5 text-blue-600" />
+                <Bell className="h-5 w-5 text-primary" />
                 <h2 className="text-base font-semibold text-foreground">Notification Preferences</h2>
               </div>
               <div className="flex items-center justify-between py-3 border border-border rounded-lg px-4">
@@ -322,7 +314,7 @@ export default function AdminAccountSettings() {
                   aria-checked={workOrderEmailNotifications}
                   onClick={() => setWorkOrderEmailNotifications(v => !v)}
                   className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
-                    workOrderEmailNotifications ? 'bg-blue-600' : 'bg-muted'
+                    workOrderEmailNotifications ? 'bg-primary' : 'bg-muted'
                   }`}
                 >
                   <span
@@ -350,7 +342,7 @@ export default function AdminAccountSettings() {
             {/* Change Password */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
-                <Lock className="h-5 w-5 text-blue-600" />
+                <Lock className="h-5 w-5 text-primary" />
                 <div>
                   <h2 className="text-base font-semibold text-foreground">Change Password</h2>
                   <p className="text-sm text-muted-foreground mt-0.5">Re-enter your current password to set a new one</p>
@@ -401,7 +393,6 @@ export default function AdminAccountSettings() {
           </>
         )}
       </div>
-          </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

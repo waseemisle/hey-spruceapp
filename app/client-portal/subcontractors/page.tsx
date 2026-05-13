@@ -29,7 +29,7 @@ interface Subcontractor {
 }
 
 const AVATAR_COLORS = [
-  'from-blue-500 to-blue-700',
+  'from-primary to-violet-700',
   'from-purple-500 to-purple-700',
   'from-green-500 to-green-700',
   'from-orange-500 to-orange-700',
@@ -297,7 +297,7 @@ export default function ClientSubcontractorsView() {
                     {sub.skills && sub.skills.length > 0 && (
                       <div className="flex flex-wrap gap-1">
                         {sub.skills.slice(0, 3).map((skill, i) => (
-                          <span key={i} className="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">{skill}</span>
+                          <span key={i} className="text-xs bg-primary/10 text-primary border border-primary/15 px-2 py-0.5 rounded-full">{skill}</span>
                         ))}
                         {sub.skills.length > 3 && (
                           <span className="text-xs text-muted-foreground">+{sub.skills.length - 3}</span>

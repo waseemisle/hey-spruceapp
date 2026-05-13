@@ -225,8 +225,8 @@ export default function ResourcesPage() {
                 onClick={() => setFilterCategory(filterCategory === cat.name ? '' : cat.name)}
                 className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border text-center transition-all hover:shadow-md ${
                   filterCategory === cat.name
-                    ? 'border-blue-400 bg-blue-50 shadow-sm dark:bg-blue-950/30'
-                    : 'border-border bg-card hover:border-blue-200'
+                    ? 'border-primary/40 bg-primary/10 shadow-sm dark:bg-primary/15'
+                    : 'border-border bg-card hover:border-primary/20'
                 }`}
               >
                 <span className="text-2xl leading-none">{cat.emoji}</span>
@@ -293,7 +293,7 @@ export default function ResourcesPage() {
                   {/* Category + type badges */}
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     {cat ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-900/40 px-2.5 py-0.5 rounded-full">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium bg-primary/10 text-primary border border-primary/15 dark:bg-primary/15 dark:text-primary dark:border-primary/25 px-2.5 py-0.5 rounded-full">
                         <span>{cat.emoji}</span> {cat.name}
                       </span>
                     ) : r.category ? (
@@ -433,7 +433,7 @@ export default function ResourcesPage() {
                 <div>
                   <Label>Type *</Label>
                   <div className="mt-1">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-400 bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-400 text-sm font-medium">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-primary/40 bg-primary/10 dark:bg-primary/15 text-primary dark:text-primary text-sm font-medium">
                       📄 Document
                     </div>
                   </div>

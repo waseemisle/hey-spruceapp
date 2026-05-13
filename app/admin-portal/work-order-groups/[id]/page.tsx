@@ -146,7 +146,7 @@ function statusBadge(status?: string) {
   if (!status) return <span className="text-xs text-muted-foreground">—</span>;
   const map: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    approved: 'bg-blue-100 text-blue-800 border-blue-200',
+    approved: 'bg-primary/15 text-foreground border-primary/20',
     bidding: 'bg-purple-100 text-purple-800 border-purple-200',
     quotes_received: 'bg-indigo-100 text-indigo-800 border-indigo-200',
     assigned: 'bg-indigo-100 text-indigo-800 border-indigo-200',
@@ -181,7 +181,7 @@ function priorityBadge(priority?: string) {
 function invoiceStatusBadge(status?: string) {
   const map: Record<string, string> = {
     draft: 'bg-muted text-foreground',
-    sent: 'bg-blue-100 text-blue-800',
+    sent: 'bg-primary/15 text-foreground',
     paid: 'bg-green-100 text-green-800',
     overdue: 'bg-red-100 text-red-800',
   };
@@ -719,18 +719,18 @@ export default function AdminWorkOrderGroupDetail() {
                         <div key={step.key} className="flex items-center">
                           <div className={`flex flex-col items-center gap-1 px-2 ${isCurrent ? 'opacity-100' : isDone ? 'opacity-80' : 'opacity-40'}`}>
                             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 ${
-                              isDone ? 'bg-blue-600 border-blue-600 text-white' :
-                              isCurrent ? 'bg-white border-blue-600 text-blue-600' :
+                              isDone ? 'bg-primary border-primary text-white' :
+                              isCurrent ? 'bg-white border-primary text-primary' :
                               'bg-white border-border text-muted-foreground'
                             }`}>
                               {isDone ? <CheckCircle className="h-4 w-4" /> : <span>{i + 1}</span>}
                             </div>
-                            <span className={`text-xs whitespace-nowrap font-medium ${isCurrent ? 'text-blue-700' : isDone ? 'text-blue-500' : 'text-muted-foreground'}`}>
+                            <span className={`text-xs whitespace-nowrap font-medium ${isCurrent ? 'text-primary' : isDone ? 'text-primary' : 'text-muted-foreground'}`}>
                               {step.label}
                             </span>
                           </div>
                           {i < STATUS_PIPELINE.length - 1 && (
-                            <div className={`h-0.5 w-6 mx-0 flex-shrink-0 ${isDone ? 'bg-blue-400' : 'bg-muted'}`} />
+                            <div className={`h-0.5 w-6 mx-0 flex-shrink-0 ${isDone ? 'bg-primary/50' : 'bg-muted'}`} />
                           )}
                         </div>
                       );
@@ -748,7 +748,7 @@ export default function AdminWorkOrderGroupDetail() {
                     {canApprove && (
                       <Button
                         size="sm"
-                        className="h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold"
+                        className="h-9 px-4 bg-primary hover:bg-primary/90 text-white rounded-xl font-semibold"
                         onClick={handleApproveGroup}
                         disabled={approving}
                       >
@@ -797,7 +797,7 @@ export default function AdminWorkOrderGroupDetail() {
                   onClick={() => setActiveTab(tab.key)}
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-t whitespace-nowrap transition-colors ${
                     activeTab === tab.key
-                      ? 'text-blue-700 border-b-2 border-blue-600 -mb-px'
+                      ? 'text-primary border-b-2 border-primary -mb-px'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -815,12 +815,12 @@ export default function AdminWorkOrderGroupDetail() {
                     <CardHeader className="pb-2 pt-4 px-5">
                       <div className="flex items-start justify-between gap-2">
                         <div>
-                          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-0.5">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-0.5">
                             Work Order {b.idx}
                           </p>
                           <Link
                             href={`/admin-portal/work-orders/${b.wo.id}`}
-                            className="flex items-center gap-1.5 text-foreground hover:text-blue-700 hover:underline"
+                            className="flex items-center gap-1.5 text-foreground hover:text-primary hover:underline"
                           >
                             <ClipboardList className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                             <span className="font-bold text-base">{b.wo.workOrderNumber || b.wo.id}</span>
@@ -888,7 +888,7 @@ export default function AdminWorkOrderGroupDetail() {
                     bundles.map((b) =>
                       b.notes.length > 0 ? (
                         <div key={b.wo.id}>
-                          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">
                             Work Order {b.idx} · {b.wo.workOrderNumber || b.wo.id}
                           </p>
                           <div className="space-y-2">
@@ -923,7 +923,7 @@ export default function AdminWorkOrderGroupDetail() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <span className="text-xs font-semibold text-blue-600 bg-blue-50 rounded px-1.5 py-0.5 mr-2">
+                                <span className="text-xs font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5 mr-2">
                                   WO {bundle.idx}
                                 </span>
                                 <span className="text-sm font-medium text-foreground">
@@ -966,7 +966,7 @@ export default function AdminWorkOrderGroupDetail() {
                     return (
                       <Card key={b.wo.id} className="rounded-2xl border border-border shadow-sm">
                         <CardHeader className="pb-2 pt-4 px-5">
-                          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wide">
                             Work Order {b.idx} · {b.wo.workOrderNumber || b.wo.id}
                           </p>
                         </CardHeader>
@@ -1035,7 +1035,7 @@ export default function AdminWorkOrderGroupDetail() {
                             b.quotes.map((q) => (
                               <tr key={q.id} className="hover:bg-muted/50 transition-colors">
                                 <td className="px-5 py-3.5">
-                                  <span className="text-xs font-semibold text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
+                                  <span className="text-xs font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5">
                                     WO {b.idx}
                                   </span>
                                   <p className="text-xs text-muted-foreground mt-0.5">{b.wo.workOrderNumber || b.wo.id}</p>
@@ -1046,7 +1046,7 @@ export default function AdminWorkOrderGroupDetail() {
                                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                     q.status === 'accepted' ? 'bg-green-100 text-green-800' :
                                     q.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                                    q.status === 'sent_to_client' ? 'bg-blue-100 text-blue-800' :
+                                    q.status === 'sent_to_client' ? 'bg-primary/15 text-foreground' :
                                     'bg-muted text-foreground'
                                   }`}>
                                     {(q.status || 'pending').replace(/_/g, ' ')}
@@ -1096,7 +1096,7 @@ export default function AdminWorkOrderGroupDetail() {
                             b.invoices.map((inv) => (
                               <tr key={inv.id} className="hover:bg-muted/50 transition-colors">
                                 <td className="px-5 py-3.5">
-                                  <span className="text-xs font-semibold text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
+                                  <span className="text-xs font-semibold text-primary bg-primary/10 rounded px-1.5 py-0.5">
                                     WO {b.idx}
                                   </span>
                                   <p className="text-xs text-muted-foreground mt-0.5">{b.wo.workOrderNumber || b.wo.id}</p>
@@ -1136,7 +1136,7 @@ export default function AdminWorkOrderGroupDetail() {
                     b.vendorPayment ? (
                       <Card key={b.wo.id} className="rounded-2xl border border-border shadow-sm">
                         <CardContent className="p-5">
-                          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3">
+                          <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-3">
                             Work Order {b.idx} · {b.wo.workOrderNumber || b.wo.id}
                           </p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -1206,7 +1206,7 @@ export default function AdminWorkOrderGroupDetail() {
                 ) : null}
                 {subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).map((sub) => (
                   <label key={sub.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                    selectedSubcontractors.includes(sub.id) ? 'border-blue-400 bg-blue-50' : 'border-border hover:bg-muted/50'
+                    selectedSubcontractors.includes(sub.id) ? 'border-primary/40 bg-primary/10' : 'border-border hover:bg-muted/50'
                   }`}>
                     <Checkbox
                       checked={selectedSubcontractors.includes(sub.id)}
@@ -1246,7 +1246,7 @@ export default function AdminWorkOrderGroupDetail() {
                     size="sm"
                     onClick={handleSubmitBidding}
                     disabled={biddingSubmitting || selectedSubcontractors.length === 0}
-                    className="h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex-1 sm:flex-none"
+                    className="h-9 rounded-xl bg-primary hover:bg-primary/90 text-white flex-1 sm:flex-none"
                   >
                     {biddingSubmitting ? 'Sharing…' : `Share with ${selectedSubcontractors.length || '—'}`}
                   </Button>
@@ -1277,7 +1277,7 @@ export default function AdminWorkOrderGroupDetail() {
                 <div className="space-y-2 max-h-72 overflow-y-auto">
                   {assignSubcontractors.map((sub) => (
                     <label key={sub.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                      selectedAssignSubId === sub.id ? 'border-blue-400 bg-blue-50' : 'border-border hover:bg-muted/50'
+                      selectedAssignSubId === sub.id ? 'border-primary/40 bg-primary/10' : 'border-border hover:bg-muted/50'
                     }`}>
                       <input
                         type="radio"
@@ -1285,7 +1285,7 @@ export default function AdminWorkOrderGroupDetail() {
                         value={sub.id}
                         checked={selectedAssignSubId === sub.id}
                         onChange={() => setSelectedAssignSubId(sub.id)}
-                        className="accent-blue-600"
+                        className="accent-primary"
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground">{sub.fullName}</p>
@@ -1304,7 +1304,7 @@ export default function AdminWorkOrderGroupDetail() {
                     Cancel
                   </Button>
                   <Button
-                    className="flex-1 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                    className="flex-1 h-9 rounded-xl bg-primary hover:bg-primary/90 text-white"
                     onClick={handleSubmitAssign}
                     disabled={assignSubmitting || !selectedAssignSubId}
                   >

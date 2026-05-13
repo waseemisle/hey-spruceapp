@@ -622,7 +622,7 @@ export default function CreateScheduledInvoicePage() {
                         onClick={() => toggleDayOfMonth(day)}
                         className={`h-9 rounded-md text-sm font-medium border transition-colors ${
                           isSelected
-                            ? 'bg-blue-600 text-white border-blue-600'
+                            ? 'bg-primary text-white border-primary'
                             : 'border-border hover:bg-muted text-foreground'
                         }`}
                       >
@@ -652,7 +652,7 @@ export default function CreateScheduledInvoicePage() {
                         onClick={() => toggleDayOfWeek(idx)}
                         className={`h-9 rounded-md text-sm font-medium border transition-colors ${
                           isSelected
-                            ? 'bg-blue-600 text-white border-blue-600'
+                            ? 'bg-primary text-white border-primary'
                             : 'border-border hover:bg-muted text-foreground'
                         }`}
                       >
@@ -693,13 +693,13 @@ export default function CreateScheduledInvoicePage() {
               picked a day yet) — reduces noise.
             */}
             {previewDates.length > 0 && (
-              <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3">
-                <p className="text-sm font-semibold text-blue-700 mb-2">
+              <div className="rounded-lg border border-primary/20 bg-primary/15 p-3">
+                <p className="text-sm font-semibold text-primary mb-2">
                   Next {previewDates.length} scheduled invoice {previewDates.length === 1 ? 'date' : 'dates'}:
                 </p>
                 <ul className="space-y-1">
                   {previewDates.map((d, i) => (
-                    <li key={i} className="text-sm text-blue-700">
+                    <li key={i} className="text-sm text-primary">
                       {i + 1}. {d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })}
                     </li>
                   ))}
@@ -722,7 +722,7 @@ export default function CreateScheduledInvoicePage() {
                 type="checkbox"
                 checked={formData.autoCharge}
                 onChange={e => setFormData({ ...formData, autoCharge: e.target.checked })}
-                className="mt-1 accent-blue-600"
+                className="mt-1 accent-primary"
               />
               <div className="text-sm">
                 <p className="font-medium">Auto-charge the client's saved payment method on each iteration</p>

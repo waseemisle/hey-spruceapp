@@ -279,7 +279,7 @@ export default function SubcontractorCompletedJobs() {
                 vendorPayment?.status === 'paid'
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                   : vendorPayment
-                    ? 'bg-blue-50 text-blue-800 border-blue-200'
+                    ? 'bg-primary/10 text-foreground border-primary/20'
                     : 'bg-muted text-foreground border-border';
               const vendorPaymentLabel =
                 vendorPayment?.status === 'paid'
@@ -327,7 +327,7 @@ export default function SubcontractorCompletedJobs() {
                         className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${vendorPaymentBadgeClass}`}
                         title={vendorPayment ? `Final: ${formatMoney(vendorPayment.finalAmount, vendorPayment.currency)}` : 'No vendor payment yet'}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${vendorPayment ? (vendorPayment.status === 'paid' ? 'bg-emerald-500' : 'bg-blue-500') : 'bg-gray-400'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${vendorPayment ? (vendorPayment.status === 'paid' ? 'bg-emerald-500' : 'bg-primary/100') : 'bg-gray-400'}`} />
                         {vendorPaymentLabel}
                         {vendorPayment ? ` • ${formatMoney(vendorPayment.finalAmount, vendorPayment.currency)}` : ''}
                       </span>

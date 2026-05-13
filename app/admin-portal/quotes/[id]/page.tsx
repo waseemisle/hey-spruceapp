@@ -11,16 +11,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, FileText, Send, Trash2, ClipboardList, User, Building2, Mail, DollarSign, AlertCircle } from 'lucide-react';
+import { ArrowLeft, FileText, Send, Trash2, ClipboardList, User, Building2, Mail, DollarSign, AlertCircle, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { formatMoney } from '@/lib/money';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { notifyClientOfQuoteSent } from '@/lib/notifications';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalDetailGlass } from '@/components/ui/portal-detail-glass';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface LineItem {
   description: string;
   quantity: number;
@@ -65,7 +64,7 @@ interface Quote {
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'text-yellow-700 bg-yellow-50 border-yellow-200',
-  sent_to_client: 'text-blue-700 bg-blue-50 border-blue-200',
+  sent_to_client: 'text-primary bg-primary/10 border-primary/20',
   accepted: 'text-green-700 bg-green-50 border-green-200',
   rejected: 'text-red-700 bg-red-50 border-red-200',
 };
@@ -302,18 +301,11 @@ export default function AdminQuoteDetail() {
 
   if (loading || !authReady) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Quote" subtitle="Loading…" icon={FileText}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -340,18 +332,31 @@ export default function AdminQuoteDetail() {
 
   return (
     <>
-      <div className="space-y-6 max-w-5xl mx-auto">
-        {/* Top bar */}
-        <div className="flex items-center justify-between gap-3">
-          <Link href="/admin-portal/quotes">
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="h-4 w-4 mr-2" />Back to Quotes
-            </Button>
-          </Link>
-          <div className="flex items-center gap-2">
-            <StatusPill status={quote.status} />
+      <div className="mx-auto max-w-5xl space-y-6">
+        <PortalDetailGlass>
+          <nav
+            className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground"
+            aria-label="Breadcrumb"
+          >
+            <Link href="/admin-portal/quotes" className="font-medium transition-colors hover:text-foreground">
+              Quotes
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" aria-hidden />
+            <span className="truncate text-xs font-mono text-foreground/90">
+              {quote.workOrderNumber || quote.id}
+            </span>
+          </nav>
+          <div className="flex items-center justify-between gap-3">
+            <Link href="/admin-portal/quotes">
+              <Button variant="outline" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-2" />Back to Quotes
+              </Button>
+            </Link>
+            <div className="flex items-center gap-2">
+              <StatusPill status={quote.status} />
+            </div>
           </div>
-        </div>
+        </PortalDetailGlass>
 
         {/* Header card */}
         <Card>
@@ -360,7 +365,7 @@ export default function AdminQuoteDetail() {
               <div className="min-w-0">
                 <CardTitle className="text-2xl">{quote.workOrderTitle}</CardTitle>
                 {quote.workOrderNumber && quote.workOrderId && (
-                  <Link href={`/admin-portal/work-orders/${quote.workOrderId}`} className="text-sm text-blue-600 hover:underline mt-1 inline-flex items-center gap-1">
+                  <Link href={`/admin-portal/work-orders/${quote.workOrderId}`} className="text-sm text-primary hover:underline mt-1 inline-flex items-center gap-1">
                     <ClipboardList className="h-3.5 w-3.5" />
                     {quote.workOrderNumber}
                   </Link>
@@ -375,7 +380,7 @@ export default function AdminQuoteDetail() {
                 {canShare && (
                   <Button
                     onClick={() => setShowShare((v) => !v)}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className="bg-primary hover:bg-primary/90"
                   >
                     <Send className="h-4 w-4 mr-2" />
                     {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Send to Client'}
@@ -425,14 +430,14 @@ export default function AdminQuoteDetail() {
                 <p className="text-2xl font-bold text-foreground">{formatMoney(quote.totalAmount)}</p>
                 <p className="text-xs text-muted-foreground mt-1">Original quote amount before markup.</p>
               </div>
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-                <p className="text-xs text-blue-700 mb-1">
+              <div className="rounded-lg border border-primary/20 bg-primary/10 p-4">
+                <p className="text-xs text-primary mb-1">
                   Client Amount {quote.markupPercentage != null ? `(${quote.markupPercentage}% markup)` : ''}
                 </p>
-                <p className="text-2xl font-bold text-blue-700">
+                <p className="text-2xl font-bold text-primary">
                   {quote.clientAmount != null ? formatMoney(quote.clientAmount) : '—'}
                 </p>
-                <p className="text-xs text-blue-700 mt-1">
+                <p className="text-xs text-primary mt-1">
                   {quote.clientAmount != null
                     ? 'This is what the client sees and pays.'
                     : 'Set a markup % below and Send to Client to lock in the client price.'}
@@ -442,7 +447,7 @@ export default function AdminQuoteDetail() {
 
             {/* Inline send-to-client panel */}
             {canShare && showShare && (
-              <div className="rounded-lg border-2 border-blue-300 bg-blue-50/40 p-4 space-y-3">
+              <div className="rounded-lg border-2 border-primary/25 bg-primary/10 p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-foreground">
                     {quote.status === 'sent_to_client' ? 'Resend to Client' : 'Send to Client'}
@@ -466,13 +471,13 @@ export default function AdminQuoteDetail() {
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-xs text-muted-foreground">Client will see</p>
-                    <p className="text-xl font-bold text-blue-700">{formatMoney(previewClientAmount)}</p>
+                    <p className="text-xl font-bold text-primary">{formatMoney(previewClientAmount)}</p>
                   </div>
                 </div>
                 <Button
                   onClick={handleApplyMarkupAndSend}
                   disabled={submitting}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
+                  className="w-full bg-primary hover:bg-primary/90"
                 >
                   <Send className="h-4 w-4 mr-2" />
                   {submitting
@@ -527,11 +532,11 @@ export default function AdminQuoteDetail() {
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                   Line Items — Client View ({quote.markupPercentage ?? 0}% markup)
                 </p>
-                <div className="border border-blue-200 rounded-md overflow-hidden">
+                <div className="border border-primary/20 rounded-md overflow-hidden">
                   <div className="overflow-x-auto">
                   <table className="w-full text-sm min-w-[420px]">
                     <thead>
-                      <tr className="bg-blue-50 text-blue-900 text-xs uppercase">
+                      <tr className="bg-primary/10 text-foreground text-xs uppercase">
                         <th className="px-3 py-2 text-left">Description</th>
                         <th className="px-3 py-2 text-center">Qty</th>
                         <th className="px-3 py-2 text-right">Unit Price</th>
@@ -540,7 +545,7 @@ export default function AdminQuoteDetail() {
                     </thead>
                     <tbody>
                       {quote.clientLineItems.map((item, idx) => (
-                        <tr key={idx} className="border-t border-blue-100">
+                        <tr key={idx} className="border-t border-primary/15">
                           <td className="px-3 py-2">{item.description}</td>
                           <td className="px-3 py-2 text-center">{item.quantity?.toFixed?.(1) ?? item.quantity}</td>
                           <td className="px-3 py-2 text-right">{formatMoney(item.unitPrice)}</td>
@@ -551,7 +556,7 @@ export default function AdminQuoteDetail() {
                   </table>
                   </div>
                 </div>
-                <div className="mt-2 text-right text-sm font-semibold text-blue-700">
+                <div className="mt-2 text-right text-sm font-semibold text-primary">
                   Client Total: {formatMoney(quote.clientAmount)}
                 </div>
               </div>

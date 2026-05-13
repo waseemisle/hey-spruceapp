@@ -184,10 +184,10 @@ export default function ClientAccountSettings() {
             <>
             {/* Profile Photo */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
-              <div className="flex items-center gap-3 mb-6"><Camera className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Profile Photo</h2></div>
+              <div className="flex items-center gap-3 mb-6"><Camera className="h-5 w-5 text-primary" /><h2 className="text-base font-semibold text-foreground">Profile Photo</h2></div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
                 <Avatar className="h-20 w-20 sm:h-24 sm:w-24 ring-4 ring-gray-100">
-                  {photoPreview ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} /> : <AvatarFallback className="text-xl font-bold bg-blue-100 text-blue-700">{initials}</AvatarFallback>}
+                  {photoPreview ? <AvatarImage src={photoPreview} alt={fullName || 'Profile'} /> : <AvatarFallback className="text-xl font-bold bg-primary/15 text-primary">{initials}</AvatarFallback>}
                 </Avatar>
                 <div className="space-y-2 w-full sm:w-auto min-w-0">
                   <Label htmlFor="profilePhoto" className="text-sm font-medium">Upload new photo</Label>
@@ -199,7 +199,7 @@ export default function ClientAccountSettings() {
 
             {/* Personal Information */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
-              <div className="flex items-center gap-3 mb-6"><User className="h-5 w-5 text-blue-600" /><h2 className="text-base font-semibold text-foreground">Personal Information</h2></div>
+              <div className="flex items-center gap-3 mb-6"><User className="h-5 w-5 text-primary" /><h2 className="text-base font-semibold text-foreground">Personal Information</h2></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="fullName">Full Name</Label>
@@ -246,7 +246,7 @@ export default function ClientAccountSettings() {
             {/* Change Password */}
             <div className="bg-card rounded-xl border border-border p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-6">
-                <Lock className="h-5 w-5 text-blue-600" />
+                <Lock className="h-5 w-5 text-primary" />
                 <div><h2 className="text-base font-semibold text-foreground">Change Password</h2><p className="text-sm text-muted-foreground mt-0.5">Re-enter your current password to set a new one</p></div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

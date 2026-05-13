@@ -15,9 +15,7 @@ import {
 } from '@/lib/dashboard-utils';
 import { Building2, ChevronDown, X, ShieldCheck, ClipboardList, FileText, Receipt, AlertTriangle } from 'lucide-react';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Company {
   id: string;
   name: string;
@@ -229,13 +227,11 @@ export default function AdminDashboard() {
     proposalsData.pendingApproval.urgent;
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero
-          title="Admin Portal"
-          subtitle=""
-          icon={Sparkles}
-        />
+    <PortalListPage
+      title="Admin Portal"
+      subtitle="Live snapshot across operations. Filter by company when you need a narrower view."
+      icon={ShieldCheck}
+    >
       <div className="min-h-screen bg-gradient-to-b from-muted/40 via-background to-background">
         {/* Main Content */}
         <div className="p-4 sm:p-6 space-y-6">
@@ -247,7 +243,7 @@ export default function AdminDashboard() {
             icon={ShieldCheck}
             accent="purple"
             stats={[
-              { label: 'Active work orders', value: totalWorkOrders, icon: ClipboardList, iconClass: 'text-blue-600 dark:text-blue-400',     iconBg: 'bg-blue-50 dark:bg-blue-950/40' },
+              { label: 'Active work orders', value: totalWorkOrders, icon: ClipboardList, iconClass: 'text-primary dark:text-primary',     iconBg: 'bg-primary/10 dark:bg-primary/20' },
               { label: 'Open proposals',     value: openProposals,   icon: FileText,      iconClass: 'text-amber-600 dark:text-amber-400',   iconBg: 'bg-amber-50 dark:bg-amber-950/40' },
               { label: 'Invoices to review', value: openInvoices,    icon: Receipt,       iconClass: 'text-emerald-600 dark:text-emerald-400', iconBg: 'bg-emerald-50 dark:bg-emerald-950/40' },
               { label: 'Urgent items',       value: urgent,          icon: AlertTriangle, iconClass: 'text-red-600 dark:text-red-400',       iconBg: 'bg-red-50 dark:bg-red-950/40' },
@@ -289,14 +285,14 @@ export default function AdminDashboard() {
                       placeholder="Search companies..."
                       value={companySearch}
                       onChange={e => setCompanySearch(e.target.value)}
-                      className="w-full px-3 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                       autoFocus
                     />
                   </div>
                   <div className="max-h-60 overflow-y-auto py-1">
                     <button
                       type="button"
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${!selectedCompanyId ? 'bg-blue-50 text-blue-600 font-medium' : 'text-foreground'}`}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${!selectedCompanyId ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
                       onClick={() => {
                         setSelectedCompanyId(null);
                         setIsCompanyDropdownOpen(false);
@@ -312,7 +308,7 @@ export default function AdminDashboard() {
                         <button
                           key={company.id}
                           type="button"
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${selectedCompanyId === company.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-foreground'}`}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors ${selectedCompanyId === company.id ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'}`}
                           onClick={() => {
                             setSelectedCompanyId(company.id);
                             setIsCompanyDropdownOpen(false);
@@ -346,7 +342,6 @@ export default function AdminDashboard() {
           <InvoicesSection data={invoicesData} portalType="admin" />
         </div>
       </div>
-          </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

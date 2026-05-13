@@ -9,7 +9,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, ArrowLeft, History, Paperclip, CreditCard, Edit2, X, Plus, Trash2, CheckCircle, Image as ImageIcon, Send, Zap } from 'lucide-react';
+import {
+  Receipt,
+  Download,
+  ArrowLeft,
+  History,
+  Paperclip,
+  CreditCard,
+  Edit2,
+  X,
+  Plus,
+  Trash2,
+  CheckCircle,
+  Image as ImageIcon,
+  Send,
+  Zap,
+  ChevronRight,
+} from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { tryDownloadStripeInvoicePdf } from '@/lib/invoice-stripe-pdf-client';
@@ -21,9 +37,8 @@ import type { InvoiceTimelineEvent, InvoiceSystemInformation } from '@/types';
 import { createInvoiceTimelineEvent } from '@/lib/timeline';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalDetailGlass } from '@/components/ui/portal-detail-glass';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -967,18 +982,11 @@ export default function AdminInvoiceDetail() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Page"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Invoice" subtitle="Loading…" icon={Receipt}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
@@ -1000,7 +1008,18 @@ export default function AdminInvoiceDetail() {
 
   return (
     <>
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <PortalDetailGlass>
+          <nav
+            className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground"
+            aria-label="Breadcrumb"
+          >
+            <Link href="/admin-portal/invoices" className="font-medium transition-colors hover:text-foreground">
+              Invoices
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" aria-hidden />
+            <span className="truncate font-mono text-xs text-foreground/90">{invoice.invoiceNumber}</span>
+          </nav>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link href="/admin-portal/invoices">
@@ -1145,6 +1164,7 @@ export default function AdminInvoiceDetail() {
             )}
           </div>
         </div>
+        </PortalDetailGlass>
 
         {/*
           Margin Edge auto-forward audit. Renders only when the invoice
@@ -1227,7 +1247,7 @@ export default function AdminInvoiceDetail() {
               {invoice.workOrderId ? (
                 <Link
                   href={`/admin-portal/work-orders/${invoice.workOrderId}`}
-                  className="text-sm text-blue-600 hover:underline mt-1 inline-block"
+                  className="text-sm text-primary hover:underline mt-1 inline-block"
                 >
                   {invoice.workOrderNumber ? `Work order #${invoice.workOrderNumber}` : 'View work order'}
                 </Link>
@@ -1265,7 +1285,7 @@ export default function AdminInvoiceDetail() {
                 return (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {targetLabel && (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                         <CreditCard className="h-3 w-3" />
                         Auto-charge target: {targetLabel}
                       </span>
@@ -1360,7 +1380,7 @@ export default function AdminInvoiceDetail() {
                 {invoice.completionImages && invoice.completionImages.length > 0 && (
                   <div>
                     <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-                      <ImageIcon className="h-4 w-4 text-blue-600" />
+                      <ImageIcon className="h-4 w-4 text-primary" />
                       Completion Images ({invoice.completionImages.length})
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -1437,7 +1457,7 @@ export default function AdminInvoiceDetail() {
             </div>
             <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
               {editModalIntent === 'reshare' && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800 px-4 py-3 text-sm text-blue-900 dark:text-blue-100">
+                <div className="rounded-lg border border-primary/20 bg-primary/10 dark:bg-primary/15 dark:border-primary/30 px-4 py-3 text-sm text-foreground dark:text-foreground">
                   The payment link always matches the invoice total saved in the database. After you save, we create a new Stripe Checkout session for that amount and email it to the client.
                 </div>
               )}

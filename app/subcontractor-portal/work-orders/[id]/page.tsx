@@ -10,6 +10,7 @@ import { formatMoney } from '@/lib/money';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ClipboardList, Calendar, MapPin, Stethoscope, FileText, Image as ImageIcon } from 'lucide-react';
+import { PortalDetailGlass } from '@/components/ui/portal-detail-glass';
 import { PortalListPage } from '@/components/ui/portal-list-page';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { formatAddress } from '@/lib/utils';
@@ -193,6 +194,7 @@ export default function SubWorkOrderDetail() {
         }
       >
 
+        <PortalDetailGlass>
         {/* Overview */}
         <Card className="rounded-2xl border border-border shadow-sm">
           <CardHeader>
@@ -281,7 +283,7 @@ export default function SubWorkOrderDetail() {
                       key={idx}
                       type="button"
                       onClick={() => { setLightboxImages(workOrder.images || []); setLightboxIndex(idx); }}
-                      className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer"
+                      className="block rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors cursor-pointer"
                     >
                       <img src={url} alt={`Attachment ${idx + 1}`} className="w-full h-24 object-cover" />
                     </button>
@@ -291,6 +293,7 @@ export default function SubWorkOrderDetail() {
             )}
           </CardContent>
         </Card>
+        </PortalDetailGlass>
 
         {/* Diagnostic Request */}
         {diagnosticQuote && (

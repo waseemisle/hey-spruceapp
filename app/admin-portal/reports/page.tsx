@@ -11,9 +11,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface WorkOrder {
@@ -107,7 +105,7 @@ function CustomerStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     none:    { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
     draft:   { label: 'Not Invoiced', cls: 'bg-muted text-muted-foreground' },
-    sent:    { label: 'Invoiced',     cls: 'bg-blue-100 text-blue-700' },
+    sent:    { label: 'Invoiced',     cls: 'bg-primary/15 text-primary' },
     paid:    { label: 'Paid',         cls: 'bg-green-100 text-green-700' },
     overdue: { label: 'Overdue',      cls: 'bg-red-100 text-red-700' },
   };
@@ -122,8 +120,8 @@ function CustomerStatusBadge({ status }: { status: string }) {
 function VendorStatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     pending:    { label: 'Pending',   cls: 'bg-yellow-100 text-yellow-700' },
-    assigned:   { label: 'Active',    cls: 'bg-blue-100 text-blue-700' },
-    to_be_started: { label: 'Active', cls: 'bg-blue-100 text-blue-700' },
+    assigned:   { label: 'Active',    cls: 'bg-primary/15 text-primary' },
+    to_be_started: { label: 'Active', cls: 'bg-primary/15 text-primary' },
     accepted_by_subcontractor: { label: 'Active', cls: 'bg-cyan-100 text-cyan-700' },
     completed:  { label: 'Completed', cls: 'bg-green-100 text-green-700' },
     bidding:    { label: 'Bidding',   cls: 'bg-purple-100 text-purple-700' },
@@ -438,41 +436,33 @@ export default function ReportsPage() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <PortalHero
-          title="Reports"
-          subtitle=""
-          icon={Sparkles}
-        />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary/20 border-t-primary" />
+      <PortalListPage title="Reports" subtitle="Loading…" icon={BarChart2}>
+        <div className="flex h-64 items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
-            </PageContainer>
-    </>
+      </PortalListPage>
     );
   }
 
   return (
-    <>
-      <div className="space-y-6 max-w-[1400px] mx-auto pb-10 print:space-y-4">
-        {/* ── Page Header ── */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Reports</h1>
-            <p className="text-muted-foreground mt-1 text-sm">Financial overview of all jobs</p>
-          </div>
-          <div className="flex gap-2 print:hidden">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" />
-              Print Report
-            </Button>
-          </div>
+    <PortalListPage
+      title="Reports"
+      subtitle="Financial overview of all jobs"
+      icon={BarChart2}
+      heroAction={
+        <div className="flex gap-2 print:hidden">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={handleExport}>
+            <Download className="h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => window.print()}>
+            <Printer className="h-4 w-4" />
+            Print Report
+          </Button>
         </div>
+      }
+    >
+      <div className="mx-auto max-w-[1400px] space-y-6 pb-10 print:space-y-4">
 
         {/* ── Filters ── */}
         <div className="bg-card rounded-xl border border-border shadow-sm p-4 print:hidden">
@@ -494,7 +484,7 @@ export default function ReportsPage() {
                     onClick={() => setPeriod(v)}
                     className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                       period === v
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-primary text-white'
                         : 'bg-muted text-muted-foreground hover:bg-muted'
                     }`}
                   >
@@ -585,8 +575,8 @@ export default function ReportsPage() {
             label="Total Revenue"
             value={fmtMoney(kpis.totalRevenue)}
             sub="Customer side"
-            topColor="bg-blue-500"
-            valueColor="text-blue-700"
+            topColor="bg-primary/100"
+            valueColor="text-primary"
           />
           <KpiCard
             label="Total Cost"
@@ -672,7 +662,7 @@ export default function ReportsPage() {
                 ) : (
                   rows.map((r) => (
                     <tr key={r.wo.id} className="hover:bg-muted transition-colors">
-                      <td className="px-4 py-3.5 font-semibold text-blue-600 whitespace-nowrap">
+                      <td className="px-4 py-3.5 font-semibold text-primary whitespace-nowrap">
                         {r.wo.workOrderNumber || r.wo.id.slice(0, 8).toUpperCase()}
                       </td>
                       <td className="px-4 py-3.5 text-muted-foreground whitespace-nowrap">
@@ -747,15 +737,15 @@ export default function ReportsPage() {
             <div
               className={`bg-card border rounded-xl p-5 cursor-pointer transition-all hover:shadow-md ${
                 expandedView === 'aging'
-                  ? 'border-blue-400 ring-1 ring-blue-200'
+                  ? 'border-primary/40 ring-1 ring-primary/20'
                   : 'border-border'
               }`}
               onClick={() => setExpandedView(expandedView === 'aging' ? null : 'aging')}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-50 rounded-lg">
-                    <BarChart2 className="h-5 w-5 text-blue-600" />
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <BarChart2 className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <p className="font-semibold text-foreground">Aging Report</p>
@@ -822,7 +812,7 @@ export default function ReportsPage() {
 
         {/* ── Aging Report Detail ── */}
         {expandedView === 'aging' && (
-          <div className="bg-card rounded-xl border border-blue-200 shadow-sm overflow-hidden">
+          <div className="bg-card rounded-xl border border-primary/20 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-foreground">Accounts Receivable Aging</h3>
               <Button
@@ -864,7 +854,7 @@ export default function ReportsPage() {
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[120px]">
                               <div
-                                className="h-full bg-blue-500 rounded-full"
+                                className="h-full bg-primary/100 rounded-full"
                                 style={{ width: `${share}%` }}
                               />
                             </div>
@@ -887,10 +877,10 @@ export default function ReportsPage() {
               <h3 className="font-semibold text-foreground">Cash Flow Summary</h3>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-blue-50 rounded-xl p-5">
-                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Total Receivables</p>
-                <p className="text-3xl font-bold text-blue-700 mt-1">{fmtMoney(kpis.receivables)}</p>
-                <p className="text-sm text-blue-500 mt-1">
+              <div className="bg-primary/10 rounded-xl p-5">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide">Total Receivables</p>
+                <p className="text-3xl font-bold text-primary mt-1">{fmtMoney(kpis.receivables)}</p>
+                <p className="text-sm text-primary mt-1">
                   {rows.filter((r) => r.customerStatus === 'sent' || r.customerStatus === 'overdue').length} invoices outstanding
                 </p>
               </div>
@@ -1041,6 +1031,6 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
-    </>
+    </PortalListPage>
   );
 }

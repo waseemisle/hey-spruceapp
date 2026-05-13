@@ -25,9 +25,7 @@ import { canAddBidders, hasBeenSharedForBidding } from '@/lib/bidding-eligibilit
 import { shouldRequireAdminApproval } from '@/lib/admin-invoice-approval';
 import { createWorkOrderGroup } from '@/lib/work-order-groups';
 
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
-import { Sparkles } from 'lucide-react';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface WorkOrder {
   id: string;
   workOrderNumber: string;
@@ -2448,8 +2446,8 @@ const handleLocationSelect = (locationId: string) => {
       case 'pending': return 'text-yellow-600 bg-yellow-50';
       case 'approved': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
-      case 'bidding': return 'text-blue-600 bg-blue-50';
-      case 'quotes_received': return 'text-blue-600 bg-blue-50';
+      case 'bidding': return 'text-primary bg-primary/10';
+      case 'quotes_received': return 'text-primary bg-primary/10';
       case 'to_be_started': return 'text-orange-600 bg-orange-50';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
@@ -2533,31 +2531,31 @@ const companiesForSelectedClient = (() => {
   return companies.filter((c) => validIds.has(c.id));
 })();
 
+  const listTitle =
+    workOrderType === 'standard'
+      ? 'Standard Work Orders'
+      : workOrderType === 'maintenance'
+        ? 'Maintenance Requests Work Orders'
+        : workOrderType === 'archive'
+          ? 'Archived Work Orders'
+          : 'All Work Orders';
+  const listSubtitle =
+    workOrderType === 'standard'
+      ? 'Manage standard work orders'
+      : workOrderType === 'maintenance'
+        ? 'Manage work orders created from maintenance requests'
+        : workOrderType === 'archive'
+          ? 'View work orders that have been archived'
+          : 'Manage all work orders and assignments';
+
   return (
     <>
-      <PageContainer>
-        <PortalHero
-          title="Work Orders"
-          subtitle=""
-          icon={Sparkles}
-        />
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-              {workOrderType === 'standard' && 'Standard Work Orders'}
-              {workOrderType === 'maintenance' && 'Maintenance Requests Work Orders'}
-              {workOrderType === 'archive' && 'Archived Work Orders'}
-              {workOrderType === 'all' && 'All Work Orders'}
-            </h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-              {workOrderType === 'standard' && 'Manage standard work orders'}
-              {workOrderType === 'maintenance' && 'Manage work orders created from maintenance requests'}
-              {workOrderType === 'archive' && 'View work orders that have been archived'}
-              {workOrderType === 'all' && 'Manage all work orders and assignments'}
-            </p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+      <PortalListPage
+        title={listTitle}
+        subtitle={listSubtitle}
+        icon={ClipboardList}
+        heroAction={
+          <>
             {workOrderType === 'archive' ? (
               <Link href="/admin-portal/work-orders" className="w-full sm:w-auto">
                 <Button variant="outline" className="w-full sm:w-auto">
@@ -2586,19 +2584,17 @@ const companiesForSelectedClient = (() => {
                   <span className="hidden sm:inline">Import Work Orders</span>
                   <span className="sm:hidden">Import</span>
                 </Button>
-                <Button
-                  onClick={handleOpenCreate}
-                  className="w-full sm:w-auto"
-                >
+                <Button onClick={handleOpenCreate} className="w-full sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   <span className="hidden sm:inline">Create Work Order</span>
                   <span className="sm:hidden">Create</span>
                 </Button>
               </>
             )}
-          </div>
-        </div>
-
+          </>
+        }
+      >
+      <div className="space-y-6">
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -3157,9 +3153,9 @@ const companiesForSelectedClient = (() => {
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-4">
                 {workOrderToShare && (
-                  <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h3 className="font-semibold text-blue-900 mb-1">{workOrderToShare.title}</h3>
-                    <p className="text-sm text-blue-700">{workOrderToShare.workOrderNumber}</p>
+                  <div className="mb-4 p-4 bg-primary/10 rounded-lg border border-primary/20">
+                    <h3 className="font-semibold text-foreground mb-1">{workOrderToShare.title}</h3>
+                    <p className="text-sm text-primary">{workOrderToShare.workOrderNumber}</p>
                   </div>
                 )}
 
@@ -3184,7 +3180,7 @@ const companiesForSelectedClient = (() => {
                         const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                         setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                       }}
-                      className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 shrink-0"
+                      className="h-4 w-4 text-primary border-border rounded focus:ring-ring shrink-0"
                     />
                     <label htmlFor="selectAllAdminListBidding" className="text-sm font-medium text-foreground truncate">
                       Select All ({subcontractors.filter(s => !s.alreadyInvited && (!biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase()))).length})
@@ -3208,7 +3204,7 @@ const companiesForSelectedClient = (() => {
                             : selectedSubcontractors.includes(sub.id)
                               ? sub.matchesCategory
                                 ? 'bg-green-50 border-green-400 ring-2 ring-green-200 cursor-pointer'
-                                : 'bg-blue-50 border-blue-300 cursor-pointer'
+                                : 'bg-primary/10 border-primary/25 cursor-pointer'
                               : sub.matchesCategory
                               ? 'bg-green-50 border-green-300 hover:border-green-400 cursor-pointer'
                               : 'bg-card border-border hover:bg-muted cursor-pointer'
@@ -3220,7 +3216,7 @@ const companiesForSelectedClient = (() => {
                           checked={selectedSubcontractors.includes(sub.id)}
                           disabled={sub.alreadyInvited}
                           onChange={() => !sub.alreadyInvited && toggleSubcontractorSelection(sub.id)}
-                          className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 disabled:opacity-50"
+                          className="h-4 w-4 text-primary border-border rounded focus:ring-ring disabled:opacity-50"
                           onClick={(e) => e.stopPropagation()}
                         />
                         <div className="flex-1 min-w-0">
@@ -3305,7 +3301,7 @@ const companiesForSelectedClient = (() => {
 
                 <div className="space-y-3">
                   <button
-                    className="w-full p-4 text-left border-2 border-border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
+                    className="w-full p-4 text-left border-2 border-border rounded-lg hover:border-primary hover:bg-primary/10 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateNormalWorkOrder}
                   >
                     <div className="font-semibold text-lg text-foreground">Standard Work Order</div>
@@ -3325,7 +3321,7 @@ const companiesForSelectedClient = (() => {
                   </button>
 
                   <button
-                    className="w-full p-4 text-left border-2 border-border rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 cursor-pointer"
+                    className="w-full p-4 text-left border-2 border-border rounded-lg hover:border-primary hover:bg-primary/10 transition-all duration-200 cursor-pointer"
                     onClick={handleCreateRecurringWorkOrder}
                   >
                     <div className="font-semibold text-lg text-foreground">Recurring Work Order</div>
@@ -3427,9 +3423,9 @@ const companiesForSelectedClient = (() => {
 
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
                 {workOrderToAssign && (
-                  <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h3 className="font-semibold text-blue-900 mb-1">{workOrderToAssign.title}</h3>
-                    <p className="text-sm text-blue-700">{workOrderToAssign.workOrderNumber}</p>
+                  <div className="mb-6 p-4 bg-primary/10 rounded-lg border border-primary/20">
+                    <h3 className="font-semibold text-foreground mb-1">{workOrderToAssign.title}</h3>
+                    <p className="text-sm text-primary">{workOrderToAssign.workOrderNumber}</p>
                   </div>
                 )}
 
@@ -3580,7 +3576,7 @@ const companiesForSelectedClient = (() => {
           </div>
         )}
       </div>
-          </PageContainer>
+      </PortalListPage>
     </>
   );
 }

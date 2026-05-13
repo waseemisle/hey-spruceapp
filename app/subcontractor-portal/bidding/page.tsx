@@ -1213,7 +1213,7 @@ export default function SubcontractorBidding() {
                   <>
                     {(viewWorkOrder.allowSubDirectInvoiceFromBidding || eligibleDirectInvoiceIds.has(viewWorkOrder.id)) && (
                       <Button
-                        className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/25"
+                        className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-primary hover:bg-primary/90 shadow-sm shadow-primary/25"
                         onClick={() => {
                           openDirectInvoiceForm(viewWorkOrder);
                           setViewWorkOrder(null);
@@ -1323,7 +1323,7 @@ export default function SubcontractorBidding() {
                   <CardHeader className="pb-2 pt-4 px-5">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Work Order {i + 1}</p>
+                        <p className="text-xs font-semibold text-primary uppercase tracking-wide">Work Order {i + 1}</p>
                         <p className="font-bold text-base text-foreground">{wo.workOrderNumber || wo.id}</p>
                         {wo.title && <p className="text-sm text-muted-foreground">{wo.title}</p>}
                       </div>
@@ -1347,7 +1347,7 @@ export default function SubcontractorBidding() {
                     {wo.images && wo.images.length > 0 && (
                       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1">
                         {wo.images.map((img, j) => (
-                          <button key={j} onClick={() => { setLightboxImages(wo.images!); setLightboxIndex(j); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
+                          <button key={j} onClick={() => { setLightboxImages(wo.images!); setLightboxIndex(j); }} className="block rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors cursor-pointer">
                             <img src={img} alt={`Attachment ${j + 1}`} className="w-full h-20 object-cover" />
                           </button>
                         ))}
@@ -1432,7 +1432,7 @@ export default function SubcontractorBidding() {
                     <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({workOrderImages.length})</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {workOrderImages.map((img, i) => (
-                        <button key={i} onClick={() => { setLightboxImages(workOrderImages); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
+                        <button key={i} onClick={() => { setLightboxImages(workOrderImages); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors cursor-pointer">
                           <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-24 object-cover" />
                         </button>
                       ))}
@@ -1685,16 +1685,16 @@ export default function SubcontractorBidding() {
             </div>
 
             <div className="min-w-0">
-              <Card className="rounded-2xl border border-blue-200/60 shadow-sm bg-blue-50/40 dark:bg-blue-950/10">
+              <Card className="rounded-2xl border border-primary/20 shadow-sm bg-primary/10 dark:bg-primary/15">
                 <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-blue-900 dark:text-blue-200">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground dark:text-muted-foreground">
                     <Receipt className="h-5 w-5 shrink-0" />
                     Invoice Details
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <form className="space-y-4 sm:space-y-5">
-                <div className="rounded-2xl bg-white/70 border border-blue-200/60 p-3 sm:p-4">
+                <div className="rounded-2xl bg-white/70 border border-primary/20 p-3 sm:p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-semibold text-foreground">Line Items *</p>
                     <Button type="button" size="sm" variant="outline" onClick={addDirectInvoiceLineItem} className="h-8 rounded-lg text-xs font-semibold gap-1.5">
@@ -1760,18 +1760,18 @@ export default function SubcontractorBidding() {
                     value={directInvoiceNotes}
                     onChange={(e) => setDirectInvoiceNotes(e.target.value)}
                     rows={3}
-                    className="w-full px-3.5 py-2.5 border border-input bg-background rounded-xl text-sm placeholder:text-muted-foreground hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    className="w-full px-3.5 py-2.5 border border-input bg-background rounded-xl text-sm placeholder:text-muted-foreground hover:border-foreground/20 focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-colors"
                     placeholder="Any additional information for the client..."
                   />
                 </div>
 
-                <div className="rounded-2xl bg-white/70 border border-blue-200/60 px-5 py-4">
+                <div className="rounded-2xl bg-white/70 border border-primary/20 px-5 py-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Invoice Total</p>
                       <p className="text-xs text-muted-foreground mt-0.5">Submitted directly to client</p>
                     </div>
-                    <p className="text-2xl font-bold text-blue-700 tabular-nums">{formatMoney(directInvoiceTotal)}</p>
+                    <p className="text-2xl font-bold text-primary tabular-nums">{formatMoney(directInvoiceTotal)}</p>
                   </div>
                 </div>
 
@@ -1787,7 +1787,7 @@ export default function SubcontractorBidding() {
                     type="button"
                     onClick={handleSubmitDirectInvoice}
                     loading={directInvoiceSubmitting} disabled={directInvoiceSubmitting}
-                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/25 w-full sm:w-auto"
+                    className="h-10 rounded-xl px-5 font-semibold gap-1.5 bg-primary hover:bg-primary/90 shadow-sm shadow-primary/25 w-full sm:w-auto"
                   >
                     <Receipt className="h-4 w-4" />
                     {directInvoiceSubmitting ? 'Submitting...' : 'Submit Invoice'}
@@ -2079,7 +2079,7 @@ export default function SubcontractorBidding() {
                       <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedBidding.images.length})</p>
                       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-3 gap-1.5 sm:gap-2">
                         {selectedBidding.images.map((img, i) => (
-                          <button key={i} type="button" onClick={() => { setLightboxImages(selectedBidding.images!); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-blue-400 transition-colors cursor-pointer">
+                          <button key={i} type="button" onClick={() => { setLightboxImages(selectedBidding.images!); setLightboxIndex(i); }} className="block rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors cursor-pointer">
                             <img src={img} alt={`Attachment ${i + 1}`} className="w-full h-16 sm:h-20 object-cover" />
                           </button>
                         ))}
@@ -2240,7 +2240,7 @@ export default function SubcontractorBidding() {
                       <p className="text-[11px] font-medium text-muted-foreground tracking-wide mt-0.5">WO: {bidding.workOrderNumber}</p>
                     )}
                     {Array.isArray(bidding.workOrderIds) && bidding.workOrderIds.length >= 2 && (
-                      <p className="text-[11px] font-medium text-blue-700 tracking-wide mt-0.5">
+                      <p className="text-[11px] font-medium text-primary tracking-wide mt-0.5">
                         Combined bundle · {bidding.workOrderIds.length} work orders
                       </p>
                     )}
@@ -2325,8 +2325,8 @@ export default function SubcontractorBidding() {
 
                 {/* Status banner — direct invoice submitted */}
                 {bidding.status === 'direct_invoice_submitted' && (
-                  <div className="rounded-xl bg-blue-50 border border-blue-200/60 px-3 py-2.5 text-xs text-blue-900 flex items-start gap-2">
-                    <Receipt className="h-4 w-4 mt-0.5 shrink-0 text-blue-600" />
+                  <div className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-2.5 text-xs text-foreground flex items-start gap-2">
+                    <Receipt className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                     <span>
                       <strong>Invoice submitted.</strong> You have been assigned to this work order. Complete the work and mark it done when finished.
                     </span>

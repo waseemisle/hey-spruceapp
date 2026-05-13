@@ -14,8 +14,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
-import { PageContainer } from '@/components/ui/page-container';
-import { PortalHero } from '@/components/ui/portal-hero';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -309,13 +308,11 @@ export default function SubcontractorsPermissionsPage() {
   const waConfigured = false; // Meta doesn't expose env on client
 
   return (
-    <>
-      <PageContainer>
-        <PortalHero
-          title="Subcontractors Messaging Permissions"
-          subtitle="Configure SMS and WhatsApp notifications for subcontractor events"
-          icon={ShieldCheck}
-        />
+    <PortalListPage
+      title="Subcontractors Messaging Permissions"
+      subtitle="Configure SMS and WhatsApp notifications for subcontractor events"
+      icon={ShieldCheck}
+    >
 
         {/* ── Global Settings ─────────────────────────────────────────── */}
         <div className="grid gap-5 lg:grid-cols-2">
@@ -586,7 +583,7 @@ export default function SubcontractorsPermissionsPage() {
                       key={sub.id}
                       onClick={() => selectSub(sub)}
                       className={`w-full text-left px-4 py-3 border-b border-border last:border-0 hover:bg-muted/50 transition-colors ${
-                        selectedSub?.id === sub.id ? 'bg-blue-50 dark:bg-blue-950/30 border-l-2 border-l-blue-500' : ''
+                        selectedSub?.id === sub.id ? 'bg-primary/10 dark:bg-primary/15 border-l-2 border-l-primary' : ''
                       }`}
                     >
                       <p className="text-sm font-medium truncate">{sub.fullName}</p>
@@ -735,7 +732,6 @@ export default function SubcontractorsPermissionsPage() {
             </div>
           </div>
         </div>
-      </PageContainer>
-    </>
+    </PortalListPage>
   );
 }

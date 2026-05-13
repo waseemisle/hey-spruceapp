@@ -10,7 +10,7 @@ import { formatUsd2 } from '@/lib/format-currency';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive, Upload, Loader2, Stethoscope, Eye, Check, Search } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, FileText, Image as ImageIcon, AlertCircle, MessageSquare, CheckCircle, DollarSign, XCircle, GitCompare, Clock, History, Paperclip, Receipt, Share2, X, Archive, Upload, Loader2, Stethoscope, Eye, Check, Search, ChevronRight } from 'lucide-react';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -23,6 +23,7 @@ import WorkOrderSystemInfo from '@/components/work-order-system-info';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 
 import { PageContainer } from '@/components/ui/page-container';
+import { PortalDetailGlass } from '@/components/ui/portal-detail-glass';
 interface WorkOrder {
   id: string;
   workOrderNumber?: string;
@@ -258,8 +259,8 @@ export default function ViewClientWorkOrder() {
       case 'pending': return 'text-yellow-600 bg-yellow-50';
       case 'approved': return 'text-green-600 bg-green-50';
       case 'rejected': return 'text-red-600 bg-red-50';
-      case 'bidding': return 'text-blue-600 bg-blue-50';
-      case 'quotes_received': return 'text-blue-600 bg-blue-50';
+      case 'bidding': return 'text-primary bg-primary/10';
+      case 'quotes_received': return 'text-primary bg-primary/10';
       case 'assigned': return 'text-indigo-600 bg-indigo-50';
       case 'accepted_by_subcontractor': return 'text-purple-600 bg-purple-50';
       case 'pending_invoice': return 'text-orange-600 bg-orange-50';
@@ -1053,8 +1054,20 @@ export default function ViewClientWorkOrder() {
   return (
     <>
       <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-start gap-3 flex-wrap">
+        <PortalDetailGlass>
+          <nav
+            className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground"
+            aria-label="Breadcrumb"
+          >
+            <Link href="/client-portal/work-orders" className="font-medium transition-colors hover:text-foreground">
+              Work orders
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-40" aria-hidden />
+            <span className="truncate text-xs font-medium text-foreground/90">
+              {workOrder.workOrderNumber ? `#${workOrder.workOrderNumber}` : workOrder.title}
+            </span>
+          </nav>
+        <div className="flex flex-wrap items-start gap-3">
           <Link href="/client-portal/work-orders">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1151,6 +1164,7 @@ export default function ViewClientWorkOrder() {
             )}
           </div>
         </div>
+        </PortalDetailGlass>
 
         {/* Status Pipeline */}
         {currentStepIdx >= 0 && (
@@ -1725,9 +1739,9 @@ export default function ViewClientWorkOrder() {
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-4">
-              <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                <h3 className="font-semibold text-blue-900 mb-1">{workOrder.title}</h3>
-                {workOrder.workOrderNumber && <p className="text-sm text-blue-700">{workOrder.workOrderNumber}</p>}
+              <div className="mb-4 p-4 bg-primary/10 rounded-xl border border-primary/20">
+                <h3 className="font-semibold text-foreground mb-1">{workOrder.title}</h3>
+                {workOrder.workOrderNumber && <p className="text-sm text-primary">{workOrder.workOrderNumber}</p>}
               </div>
               <div className="mb-3 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
@@ -1750,7 +1764,7 @@ export default function ViewClientWorkOrder() {
                       const allSelected = filtered.every(s => selectedSubcontractors.includes(s.id));
                       setSelectedSubcontractors(allSelected ? selectedSubcontractors.filter(id => !filtered.find(s => s.id === id)) : [...new Set([...selectedSubcontractors, ...filtered.map(s => s.id)])]);
                     }}
-                    className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500 shrink-0"
+                    className="h-4 w-4 text-primary border-border rounded focus:ring-ring shrink-0"
                   />
                   <label htmlFor="selectAllDetail" className="text-sm font-medium text-foreground truncate">Select All ({subcontractors.filter(s => !biddingSearch.trim() || s.fullName.toLowerCase().includes(biddingSearch.toLowerCase()) || (s.businessName || '').toLowerCase().includes(biddingSearch.toLowerCase())).length})</label>
                 </div>
@@ -1765,7 +1779,7 @@ export default function ViewClientWorkOrder() {
                       key={sub.id}
                       className={`flex items-center gap-3 p-3 rounded-lg border transition-colors cursor-pointer ${
                         selectedSubcontractors.includes(sub.id)
-                          ? sub.matchesCategory ? 'bg-green-50 border-green-400 ring-2 ring-green-200' : 'bg-blue-50 border-blue-300'
+                          ? sub.matchesCategory ? 'bg-green-50 border-green-400 ring-2 ring-green-200' : 'bg-primary/10 border-primary/25'
                           : sub.matchesCategory ? 'bg-green-50 border-green-300 hover:border-green-400' : 'bg-white border-border hover:bg-muted'
                       }`}
                       onClick={() => toggleSubcontractorSelection(sub.id)}
@@ -1774,7 +1788,7 @@ export default function ViewClientWorkOrder() {
                         type="checkbox"
                         checked={selectedSubcontractors.includes(sub.id)}
                         onChange={() => toggleSubcontractorSelection(sub.id)}
-                        className="h-4 w-4 text-blue-600 border-border rounded focus:ring-blue-500"
+                        className="h-4 w-4 text-primary border-border rounded focus:ring-ring"
                         onClick={e => e.stopPropagation()}
                       />
                       <div className="flex-1 min-w-0">
