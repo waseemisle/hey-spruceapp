@@ -14,6 +14,8 @@ Reference: `app/admin-portal/work-orders/[id]/page.tsx`.
 
 **Phase 4**: Remaining portal pages that used `PageHeader` + `PageContainer` now use `PortalListPage` (shared `PortalHero` band + `PageContainer` rhythm). `PortalHero` shows primary actions on narrow viewports (no longer `hidden md:flex`). Subcontractor bidding multi-step flows and payment-methods modals keep siblings outside the list shell where they were portaled before.
 
+**Misc (auth / payments / offline)**: `AuthShell` now uses the same gradient column width as portals (`PORTAL_MAIN_MAX_WIDTH`), optional `PortalHero` when the title is non-empty, and a header `ThemeToggle`. Login, registration, password flows, impersonation, Stripe result pages, pay-by-bank, and offline use token-based spinners, links (`text-primary`), and `rounded-xl` cards for visual parity.
+
 ## Theme / tokens
 
 | File | Status | Notes |

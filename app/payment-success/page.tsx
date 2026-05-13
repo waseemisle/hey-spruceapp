@@ -204,14 +204,14 @@ function PaymentSuccessContent() {
 
   return (
     <AuthShell title="Payment Successful" subtitle="Your receipt is ready." icon={CheckCircle} contentClassName="max-w-lg">
-      <Card className="w-full">
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="bg-green-100 p-3 rounded-full">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+          <div className="mb-4 flex justify-center">
+            <div className="rounded-full bg-emerald-500/15 p-3 dark:bg-emerald-500/20">
+              <CheckCircle className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-green-600">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Payment Successful!
           </CardTitle>
         </CardHeader>
@@ -238,9 +238,9 @@ function PaymentSuccessContent() {
 
           {paymentDetails && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 p-3 dark:bg-emerald-500/15">
                 <span className="text-sm font-medium text-foreground">Status</span>
-                <span className="text-sm font-semibold text-green-600">Paid</span>
+                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Paid</span>
               </div>
               
               <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -267,8 +267,8 @@ function PaymentSuccessContent() {
           )}
 
           {error && (
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
-              <p className="text-sm text-yellow-800">{error}</p>
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 dark:bg-amber-500/10">
+              <p className="text-sm text-amber-950 dark:text-amber-100">{error}</p>
             </div>
           )}
 

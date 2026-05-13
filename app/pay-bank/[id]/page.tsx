@@ -90,7 +90,7 @@ export default function PayBankPage() {
     return (
       <AuthShell title="Pay by Bank" subtitle="Loading invoice…" icon={BanknoteIcon}>
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       </AuthShell>
     );
@@ -99,7 +99,7 @@ export default function PayBankPage() {
   if (!invoice) {
     return (
       <AuthShell title="Pay by Bank" subtitle="Invoice not found." icon={AlertCircle}>
-        <Card className="w-full">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardContent className="p-8 text-center space-y-4">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto" />
             <h2 className="text-lg font-semibold">Invoice Not Found</h2>
@@ -118,7 +118,7 @@ export default function PayBankPage() {
   if (invoice.status === 'paid') {
     return (
       <AuthShell title="Pay by Bank" subtitle="This invoice is already paid." icon={CheckCircle}>
-        <Card className="w-full">
+        <Card className="w-full rounded-xl border-border/80 shadow-sm">
           <CardContent className="p-8 text-center space-y-4">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <h2 className="text-lg font-semibold">Invoice Already Paid</h2>
@@ -198,7 +198,7 @@ export default function PayBankPage() {
               </div>
             </div>
 
-            <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg text-xs text-blue-800">
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/50 p-3 text-xs text-muted-foreground">
               <Shield className="h-4 w-4 flex-shrink-0 mt-0.5" />
               <span>
                 You&apos;ll be redirected to Stripe&apos;s secure checkout to connect your bank account.

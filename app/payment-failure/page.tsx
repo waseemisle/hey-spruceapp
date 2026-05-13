@@ -35,7 +35,7 @@ function PaymentFailureContent() {
     return (
       <AuthShell title="Payment Failed" subtitle="Loading…" icon={XCircle}>
         <div className="flex items-center justify-center py-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
       </AuthShell>
     );
@@ -43,7 +43,7 @@ function PaymentFailureContent() {
 
   return (
     <AuthShell title="Payment Failed" subtitle="Your payment could not be processed." icon={XCircle}>
-      <Card className="w-full">
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <div className="bg-red-100 p-3 rounded-full">
@@ -107,7 +107,7 @@ function PaymentFailureContent() {
           <div className="text-center pt-4">
             <p className="text-xs text-muted-foreground">
               Need help? Contact support at{' '}
-              <a href="mailto:support@groundops.com" className="text-blue-600 hover:underline">
+              <a href="mailto:support@groundops.com" className="text-primary underline-offset-4 hover:underline">
                 support@groundops.com
               </a>
             </p>
@@ -123,7 +123,7 @@ export default function PaymentFailure() {
     <Suspense fallback={
       <AuthShell title="Payment Failed" subtitle="Loading…" icon={XCircle}>
         <div className="text-center py-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto" />
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </AuthShell>

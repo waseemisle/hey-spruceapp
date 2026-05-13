@@ -35,7 +35,7 @@ function PaymentCancelledContent() {
     return (
       <AuthShell title="Payment Cancelled" subtitle="Loading…" icon={X}>
         <div className="flex items-center justify-center py-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600" />
+          <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
       </AuthShell>
     );
@@ -43,14 +43,14 @@ function PaymentCancelledContent() {
 
   return (
     <AuthShell title="Payment Cancelled" subtitle="No charges were made." icon={X}>
-      <Card className="w-full">
+      <Card className="w-full rounded-xl border-border/80 shadow-sm">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-yellow-100 p-3 rounded-full">
-              <X className="h-8 w-8 text-yellow-600" />
+          <div className="rounded-full bg-amber-500/15 p-3 dark:bg-amber-500/20">
+              <X className="h-8 w-8 text-amber-700 dark:text-amber-300" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-yellow-600">
+          <CardTitle className="text-2xl font-bold text-foreground">
             Payment Cancelled
           </CardTitle>
         </CardHeader>
@@ -69,13 +69,13 @@ function PaymentCancelledContent() {
             )}
           </div>
 
-          <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
             <div className="flex">
               <div className="ml-3">
-                <p className="text-sm text-blue-800">
+                <p className="text-sm font-medium text-foreground">
                   <strong>Need to complete your payment?</strong>
                 </p>
-                <p className="mt-1 text-sm text-blue-700">
+                <p className="mt-1 text-sm text-muted-foreground">
                   You can retry the payment at any time from your invoices page.
                 </p>
               </div>
@@ -104,7 +104,7 @@ function PaymentCancelledContent() {
           <div className="text-center pt-4">
             <p className="text-xs text-muted-foreground">
               Questions? Contact us at{' '}
-              <a href="mailto:support@groundops.com" className="text-blue-600 hover:underline">
+              <a href="mailto:support@groundops.com" className="text-primary underline-offset-4 hover:underline">
                 support@groundops.com
               </a>
             </p>
@@ -120,7 +120,7 @@ export default function PaymentCancelled() {
     <Suspense fallback={
       <AuthShell title="Payment Cancelled" subtitle="Loading…" icon={X}>
         <div className="text-center py-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto" />
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
           <p className="mt-4 text-muted-foreground">Loading...</p>
         </div>
       </AuthShell>
