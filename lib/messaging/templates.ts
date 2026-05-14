@@ -15,10 +15,8 @@ export function subcontractorApprovalText(o: {
   portalUrl?: string;
 }): string {
   const biz = o.businessName ? ` (${o.businessName})` : '';
-  const loginLine = o.portalUrl
-    ? `Log in to get started: ${o.portalUrl}`
-    : 'Log in to GroundOps to get started.';
-  return `GroundOps: Hi ${o.toName}${biz}, your subcontractor account is now active. ${loginLine}`;
+  const link = o.portalUrl ? ` ${o.portalUrl}` : '';
+  return `GroundOps account notification via SMS. Sent by GroundOps. ${o.toName}${biz} account is now approved.${link}`;
 }
 
 export function biddingOpportunityText(o: {
@@ -27,10 +25,8 @@ export function biddingOpportunityText(o: {
   workOrderTitle: string;
   portalUrl?: string;
 }): string {
-  const loginLine = o.portalUrl
-    ? `Log in to respond: ${o.portalUrl}`
-    : 'Log in to GroundOps to respond.';
-  return `GroundOps: Hi ${o.toName}, WO #${o.workOrderNumber} (${o.workOrderTitle}) is ready for your quote. ${loginLine}`;
+  const link = o.portalUrl ? ` ${o.portalUrl}` : '';
+  return `GroundOps job notification via SMS. Sent by GroundOps. Job ${o.workOrderNumber} is assigned to ${o.toName}.${link}`;
 }
 
 export function quoteApprovedText(o: {
@@ -39,10 +35,8 @@ export function quoteApprovedText(o: {
   workOrderTitle: string;
   portalUrl?: string;
 }): string {
-  const loginLine = o.portalUrl
-    ? `Log in to view details: ${o.portalUrl}`
-    : 'Log in to GroundOps to view details.';
-  return `GroundOps: Hi ${o.toName}, your quote for WO #${o.workOrderNumber} (${o.workOrderTitle}) was accepted. ${loginLine}`;
+  const link = o.portalUrl ? ` ${o.portalUrl}` : '';
+  return `GroundOps job notification via SMS. Sent by GroundOps. Job ${o.workOrderNumber} quote confirmed for ${o.toName}.${link}`;
 }
 
 export function testMessageText(o: { fromAdmin: string; channel: MessageChannel }): string {
