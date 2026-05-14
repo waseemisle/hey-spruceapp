@@ -33,6 +33,7 @@ import {
   XCircle,
   Trash2,
   Clock,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PortalListPage } from '@/components/ui/portal-list-page';
@@ -77,6 +78,27 @@ const EVENT_TYPE_COLORS: Record<MessageEventType, string> = {
 };
 
 const PAGE_SIZE = 25;
+
+/** Human labels for Firestore `context` keys in the detail panel. */
+function contextFieldLabel(key: string): string {
+  const labels: Record<string, string> = {
+    shareBatchId: 'Invite batch ID',
+    shareNonce: 'Server invite nonce',
+    workOrderId: 'Work order ID',
+    workOrderNumber: 'Work order #',
+    workOrderTitle: 'Title',
+    locationName: 'Location',
+    category: 'Category',
+    priority: 'Priority',
+    quoteId: 'Quote ID',
+    toName: 'Recipient name',
+    businessName: 'Business',
+    portalUrl: 'Portal URL',
+    fromAdmin: 'Sent by',
+    testPhone: 'Test phone',
+  };
+  return labels[key] ?? key;
+}
 
 function formatDate(ts: Timestamp | null): string {
   if (!ts) return '—';
@@ -257,6 +279,19 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
     >
       <div className="space-y-4">
 
+          {colName === 'smsLogs' && (
+            <div className="flex gap-3 rounded-lg border border-amber-200/80 bg-amber-50/90 dark:border-amber-900/60 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+              <Info className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300 mt-0.5" aria-hidden />
+              <div className="space-y-1">
+                <p className="font-medium">Bid invite SMS tracking</p>
+                <p className="text-amber-900/90 dark:text-amber-100/85 leading-snug">
+                  New bid invites include an <strong>invite batch ID</strong> in the Details column so each share gets a fresh Blooio message.
+                  Click <strong>Refresh</strong> after sending. <strong>Skipped</strong> with a Blooio replay message means no new SMS was sent for that request.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Filters */}
           <div className="flex flex-wrap gap-3 items-center">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -372,7 +407,14 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
                             {log.context?.workOrderTitle && (
                               <span className="text-xs text-muted-foreground truncate max-w-[150px]">{log.context.workOrderTitle}</span>
                             )}
-                            {!log.context?.workOrderNumber && !log.context?.workOrderTitle && (
+                            {log.type === 'bidding-opportunity' && (
+                              <span className="text-[10px] font-mono text-amber-800 dark:text-amber-300/90">
+                                {log.context?.shareBatchId
+                                  ? `Invite batch ${String(log.context.shareBatchId).slice(0, 8)}…`
+                                  : 'Invite batch: not recorded (older send)'}
+                              </span>
+                            )}
+                            {!log.context?.workOrderNumber && !log.context?.workOrderTitle && log.type !== 'bidding-opportunity' && (
                               <span className="text-xs text-muted-foreground">—</span>
                             )}
                           </div>
@@ -507,7 +549,11 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
                         </div>
                         <div className="divide-y divide-border">
                           {entries.map(([k, v]) => (
-                            <DetailRow key={k} label={k} value={typeof v === 'object' ? JSON.stringify(v) : String(v)} />
+                            <DetailRow
+                              key={k}
+                              label={contextFieldLabel(k)}
+                              value={typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                            />
                           ))}
                         </div>
                       </div>
