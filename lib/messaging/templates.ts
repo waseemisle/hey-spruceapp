@@ -12,28 +12,37 @@ export function appendSmsOptOutFooter(body: string): string {
 export function subcontractorApprovalText(o: {
   toName: string;
   businessName?: string;
-  portalUrl: string;
+  portalUrl?: string;
 }): string {
   const biz = o.businessName ? ` (${o.businessName})` : '';
-  return `Hi ${o.toName}${biz}, your GroundOps subcontractor account has been approved! Log in to start bidding on jobs: ${o.portalUrl}`;
+  const loginLine = o.portalUrl
+    ? `Log in to start bidding on jobs: ${o.portalUrl}`
+    : 'Log in to GroundOps to start bidding on jobs.';
+  return `Hi ${o.toName}${biz}, your GroundOps subcontractor account has been approved! ${loginLine}`;
 }
 
 export function biddingOpportunityText(o: {
   toName: string;
   workOrderNumber: string;
   workOrderTitle: string;
-  portalUrl: string;
+  portalUrl?: string;
 }): string {
-  return `Hi ${o.toName}, you have a new bidding opportunity on GroundOps! Work Order #${o.workOrderNumber}: ${o.workOrderTitle}. Log in to submit your bid: ${o.portalUrl}`;
+  const loginLine = o.portalUrl
+    ? `Log in to submit your bid: ${o.portalUrl}`
+    : 'Log in to GroundOps to submit your bid.';
+  return `Hi ${o.toName}, you have a new bidding opportunity on GroundOps! Work Order #${o.workOrderNumber}: ${o.workOrderTitle}. ${loginLine}`;
 }
 
 export function quoteApprovedText(o: {
   toName: string;
   workOrderNumber: string;
   workOrderTitle: string;
-  portalUrl: string;
+  portalUrl?: string;
 }): string {
-  return `Hi ${o.toName}, great news! Your quote for Work Order #${o.workOrderNumber}: ${o.workOrderTitle} has been approved. Log in to view the assignment: ${o.portalUrl}`;
+  const loginLine = o.portalUrl
+    ? `Log in to view your assignment: ${o.portalUrl}`
+    : 'Log in to GroundOps to view your assignment.';
+  return `Hi ${o.toName}, great news! Your quote for Work Order #${o.workOrderNumber}: ${o.workOrderTitle} has been approved. ${loginLine}`;
 }
 
 export function testMessageText(o: { fromAdmin: string; channel: MessageChannel }): string {

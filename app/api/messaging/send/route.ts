@@ -89,7 +89,11 @@ function buildBody(
   ctx: Record<string, any>,
   channel: MessageChannel,
 ): string {
-  const portalUrl = `${getBaseUrl()}/portal-login`;
+  // URLs in SMS trigger carrier spam filters (especially vercel.app domains).
+  // Omit portal URLs from SMS bodies; WhatsApp keeps them via pre-approved templates.
+  const isSms = channel === 'sms';
+  const portalUrl = isSms ? undefined : `${getBaseUrl()}/portal-login`;
+  const biddingUrl = isSms ? undefined : `${getBaseUrl()}/subcontractor-portal/bidding`;
   switch (type) {
     case 'subcontractor-approval':
       return subcontractorApprovalText({
@@ -102,14 +106,14 @@ function buildBody(
         toName: ctx.toName || '',
         workOrderNumber: ctx.workOrderNumber || '',
         workOrderTitle: ctx.workOrderTitle || '',
-        portalUrl: `${getBaseUrl()}/subcontractor-portal/bidding`,
+        portalUrl: biddingUrl,
       });
     case 'quote-approved':
       return quoteApprovedText({
         toName: ctx.toName || '',
         workOrderNumber: ctx.workOrderNumber || '',
         workOrderTitle: ctx.workOrderTitle || '',
-        portalUrl: `${getBaseUrl()}/subcontractor-portal/bidding`,
+        portalUrl: biddingUrl,
       });
     case 'test':
       return testMessageText({ fromAdmin: ctx.fromAdmin || 'Admin', channel });
