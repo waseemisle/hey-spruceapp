@@ -25,6 +25,7 @@ import {
   Send,
   Zap,
   ChevronRight,
+  Pencil,
 } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
@@ -1242,7 +1243,14 @@ export default function AdminInvoiceDetail() {
         <Card>
           <CardHeader>
             <div>
-              <CardTitle className="text-2xl mb-2">{invoice.invoiceNumber}</CardTitle>
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <CardTitle className="text-2xl">{invoice.invoiceNumber}</CardTitle>
+                {(invoice as any).editedAt && (
+                  <span className="inline-flex items-center gap-1 text-sm text-muted-foreground italic">
+                    <Pencil className="h-3.5 w-3.5" />Edited
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">{invoice.workOrderTitle}</p>
               {invoice.workOrderId ? (
                 <Link

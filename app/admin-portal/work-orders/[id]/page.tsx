@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2, Stethoscope, Wrench, ThumbsUp, ThumbsDown, Search, ClipboardList } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, User, FileText, Image as ImageIcon, DollarSign, MessageSquare, CheckCircle, GitCompare, Edit2, Clock, History, Paperclip, StickyNote, Receipt, ChevronRight, AlertCircle, Plus, Send, Share2, X, UserPlus, Eye, Archive, Landmark, Upload, Loader2, Stethoscope, Wrench, ThumbsUp, ThumbsDown, Search, ClipboardList, Pencil } from 'lucide-react';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -2564,11 +2564,16 @@ export default function ViewWorkOrder() {
                     </div>
                     {(workOrder as any).diagnosticResults && (
                       <div className="rounded-xl border border-indigo-200/60 bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
-                        <h3 className="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-2 flex items-center gap-2">
+                        <h3 className="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-2 flex items-center gap-2 flex-wrap">
                           <span className="inline-block h-2 w-2 rounded-full bg-indigo-500" />
                           Diagnostic Results
                           {(workOrder as any).diagnosticResultsBy?.name && (
                             <span className="text-xs font-normal text-muted-foreground">— {(workOrder as any).diagnosticResultsBy.name}</span>
+                          )}
+                          {(workOrder as any).diagnosticResultsEditedAt && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                              <Pencil className="h-3 w-3" />Edited
+                            </span>
                           )}
                         </h3>
                         <p className="text-foreground whitespace-pre-wrap text-sm">{(workOrder as any).diagnosticResults}</p>
@@ -3522,11 +3527,16 @@ export default function ViewWorkOrder() {
                 <CardContent>
                   {(workOrder as any).diagnosticResults && (
                     <div className="mb-4 rounded-xl border border-indigo-200/60 bg-indigo-50/60 dark:bg-indigo-950/20 p-4">
-                      <h3 className="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-2 flex items-center gap-2">
+                      <h3 className="font-semibold text-indigo-900 dark:text-indigo-200 text-sm mb-2 flex items-center gap-2 flex-wrap">
                         <Stethoscope className="h-4 w-4" />
                         Diagnostic Results
                         {(workOrder as any).diagnosticResultsBy?.name && (
                           <span className="text-xs font-normal text-muted-foreground">— {(workOrder as any).diagnosticResultsBy.name}</span>
+                        )}
+                        {(workOrder as any).diagnosticResultsEditedAt && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                            <Pencil className="h-3 w-3" />Edited
+                          </span>
                         )}
                       </h3>
                       <p className="text-foreground whitespace-pre-wrap text-sm">{(workOrder as any).diagnosticResults}</p>
@@ -3573,6 +3583,11 @@ export default function ViewWorkOrder() {
                                     <Stethoscope className="h-3 w-3" />
                                     Diagnostic Request
                                   </span>
+                                  {(quote as any).editedAt && (
+                                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                                      <Pencil className="h-3 w-3" />Edited
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">
                                   {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
@@ -3649,6 +3664,11 @@ export default function ViewWorkOrder() {
                                       Diagnostic Bid
                                     </span>
                                   )}
+                                  {(quote as any).editedAt && (
+                                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                                      <Pencil className="h-3 w-3" />Edited
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-sm text-muted-foreground">{quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
                                 {quote.notes && <p className="text-sm text-muted-foreground mt-1">{quote.notes}</p>}
@@ -3720,7 +3740,14 @@ export default function ViewWorkOrder() {
                         <div key={inv.id} className="rounded-xl border border-border bg-card/60 p-4 shadow-sm transition-all hover:border-primary/20 hover:shadow-md dark:bg-card/40">
                           <div className="flex justify-between items-start">
                             <div>
-                              <p className="font-semibold text-sm">Invoice #{inv.invoiceNumber || inv.id.slice(0, 8)}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-sm">Invoice #{inv.invoiceNumber || inv.id.slice(0, 8)}</p>
+                                {inv.editedAt && (
+                                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                                    <Pencil className="h-3 w-3" />Edited
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-muted-foreground">{inv.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}</p>
                             </div>
                             <div className="text-right">

@@ -21,7 +21,7 @@ import { SettingCard, SettingRow } from '@/components/ui/setting-card';
 import {
   ShieldCheck, MessageSquare, MessageCircle, Smartphone, Users,
   Save, Search, TestTube2, CheckCircle2, XCircle, Loader2,
-  ChevronDown, ChevronUp, AlertTriangle,
+  ChevronDown, ChevronUp, AlertTriangle, Edit, Receipt, FileText, Stethoscope,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -78,6 +78,12 @@ interface SubPerm {
   phoneOverride?: string;
 }
 
+interface EditPerm {
+  canEditInvoice: boolean;
+  canEditQuote: boolean;
+  canEditDiagnostic: boolean;
+}
+
 interface TestResult {
   channel: string;
   status: string;
@@ -124,6 +130,12 @@ export default function SubcontractorsPermissionsPage() {
   const [testLoading, setTestLoading] = useState<'sms' | 'whatsapp' | 'both' | null>(null);
   const [subTestResults, setSubTestResults] = useState<TestResult[]>([]);
   const [subTestLoading, setSubTestLoading] = useState(false);
+
+  // ── Edit Permissions state ─────────────────────────────────────────────────
+  const [editPerm, setEditPerm] = useState<EditPerm>({ canEditInvoice: false, canEditQuote: false, canEditDiagnostic: false });
+  const [editPermDirty, setEditPermDirty] = useState(false);
+  const [editPermSaving, setEditPermSaving] = useState(false);
+  const [editPermLoading, setEditPermLoading] = useState(false);
 
   // Load only after auth is restored and adminUsers doc exists (matches Firestore `isAdmin()`).
   useEffect(() => {
@@ -205,6 +217,66 @@ export default function SubcontractorsPermissionsPage() {
     }
   }
 
+  async function loadEditPerm(subId: string) {
+    setEditPermLoading(true);
+    try {
+      const u = auth?.currentUser;
+      if (!u) return;
+      const adminSnap = await getDoc(doc(db, 'adminUsers', u.uid));
+      if (!adminSnap.exists()) return;
+
+      const snap = await getDoc(doc(db, 'subcontractorEditPermissions', subId));
+      if (snap.exists()) {
+        const data = snap.data() as EditPerm;
+        setEditPerm({
+          canEditInvoice: data.canEditInvoice ?? false,
+          canEditQuote: data.canEditQuote ?? false,
+          canEditDiagnostic: data.canEditDiagnostic ?? false,
+        });
+      } else {
+        setEditPerm({ canEditInvoice: false, canEditQuote: false, canEditDiagnostic: false });
+      }
+    } catch (err) {
+      console.error('Failed to load edit permissions:', err);
+    } finally {
+      setEditPermLoading(false);
+      setEditPermDirty(false);
+    }
+  }
+
+  async function saveEditPerm() {
+    if (!selectedSub) return;
+    setEditPermSaving(true);
+    try {
+      const user = auth?.currentUser;
+      if (!user) {
+        toast.error('You must be signed in to save permissions.');
+        return;
+      }
+      const adminSnap = await getDoc(doc(db, 'adminUsers', user.uid));
+      if (!adminSnap.exists()) {
+        toast.error('You do not have permission to change subcontractor edit permissions.');
+        return;
+      }
+      await setDoc(
+        doc(db, 'subcontractorEditPermissions', selectedSub.id),
+        {
+          ...editPerm,
+          subcontractorId: selectedSub.id,
+          updatedAt: serverTimestamp(),
+          updatedBy: user.uid,
+        },
+        { merge: true },
+      );
+      setEditPermDirty(false);
+      toast.success(`Edit permissions saved for ${selectedSub.fullName}`);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to save edit permissions');
+    } finally {
+      setEditPermSaving(false);
+    }
+  }
+
   function updateGlobal(update: Partial<GlobalSettings>) {
     setGlobalSettings((prev) => ({ ...prev, ...update }));
     setGlobalDirty(true);
@@ -266,6 +338,7 @@ export default function SubcontractorsPermissionsPage() {
     setSelectedSub(sub);
     setSubTestResults([]);
     loadSubPerm(sub.id);
+    loadEditPerm(sub.id);
   }
 
   function updateSubPerm(update: Partial<SubPerm>) {
@@ -354,10 +427,16 @@ export default function SubcontractorsPermissionsPage() {
 
   return (
     <PortalListPage
-      title="Subcontractors Messaging Permissions"
-      subtitle="Configure SMS and WhatsApp notifications for subcontractor events"
+      title="Subcontractors Permissions"
+      subtitle="Manage messaging, editing, and submission permissions for subcontractors"
       icon={ShieldCheck}
     >
+
+        {/* ── Messaging Permissions section heading ───────────────────── */}
+        <div className="flex items-center gap-2 pt-1">
+          <MessageSquare className="h-5 w-5 text-primary" />
+          <h2 className="text-base font-semibold">Messaging Permissions</h2>
+        </div>
 
         {/* ── Global Settings ─────────────────────────────────────────── */}
         <div className="grid gap-5 lg:grid-cols-2">
@@ -777,6 +856,121 @@ export default function SubcontractorsPermissionsPage() {
             </div>
           </div>
         </div>
+        {/* ── Edit Submission Permissions section heading ─────────────── */}
+        <div className="flex items-center gap-2 pt-2">
+          <Edit className="h-5 w-5 text-orange-500" />
+          <h2 className="text-base font-semibold">Edit Submission Permissions</h2>
+        </div>
+        <p className="text-sm text-muted-foreground -mt-2">
+          Control which subcontractors can edit their already-submitted invoices, quotes, and diagnostic requests.
+        </p>
+
+        {/* ── Edit Permissions master-detail ──────────────────────────── */}
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h3 className="font-semibold text-sm">Per-Subcontractor Edit Permissions</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Select a subcontractor to manage what they can edit after submission.
+            </p>
+          </div>
+
+          <div className="flex min-h-[400px]">
+            {/* Left rail — reuse the same subcontractor list */}
+            <div className="w-72 flex-shrink-0 border-r border-border flex flex-col">
+              <div className="p-3 border-b border-border">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search subcontractors..."
+                    value={subSearch}
+                    onChange={(e) => setSubSearch(e.target.value)}
+                    className="pl-9 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {filteredSubs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-8">No approved subcontractors</p>
+                ) : (
+                  filteredSubs.map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => selectSub(sub)}
+                      className={`w-full text-left px-4 py-3 border-b border-border last:border-0 hover:bg-muted/50 transition-colors ${
+                        selectedSub?.id === sub.id ? 'bg-primary/10 dark:bg-primary/15 border-l-2 border-l-primary' : ''
+                      }`}
+                    >
+                      <p className="text-sm font-medium truncate">{sub.fullName}</p>
+                      {sub.businessName && <p className="text-xs text-muted-foreground truncate">{sub.businessName}</p>}
+                      <p className="text-xs font-mono text-muted-foreground truncate mt-0.5">{sub.email}</p>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Right panel */}
+            <div className="flex-1 p-5 overflow-y-auto">
+              {!selectedSub ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                  <Edit className="h-10 w-10 mb-3 opacity-40" />
+                  <p className="text-sm">Select a subcontractor to configure their edit permissions</p>
+                </div>
+              ) : editPermLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <h4 className="font-semibold text-base">{selectedSub.fullName}</h4>
+                    {selectedSub.businessName && <p className="text-sm text-muted-foreground">{selectedSub.businessName}</p>}
+                    <p className="text-xs text-muted-foreground mt-1">{selectedSub.email}</p>
+                  </div>
+
+                  <SettingCard title="Edit Submission Permissions" icon={Edit as any} accent="amber">
+                    <SettingRow
+                      label="Can edit submitted invoice"
+                      description="Allow this subcontractor to update a direct invoice before it is approved or paid"
+                    >
+                      <Switch
+                        checked={editPerm.canEditInvoice}
+                        onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditInvoice: v })); setEditPermDirty(true); }}
+                      />
+                    </SettingRow>
+                    <SettingRow
+                      label="Can edit submitted quote"
+                      description="Allow this subcontractor to update a quote before it is approved"
+                    >
+                      <Switch
+                        checked={editPerm.canEditQuote}
+                        onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditQuote: v })); setEditPermDirty(true); }}
+                      />
+                    </SettingRow>
+                    <SettingRow
+                      label="Can edit diagnostic request"
+                      description="Allow this subcontractor to update a diagnostic request or results before admin review"
+                    >
+                      <Switch
+                        checked={editPerm.canEditDiagnostic}
+                        onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditDiagnostic: v })); setEditPermDirty(true); }}
+                      />
+                    </SettingRow>
+
+                    <div className="flex gap-2 pt-1">
+                      <Button onClick={saveEditPerm} disabled={!editPermDirty || editPermSaving} size="sm">
+                        {editPermSaving
+                          ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                          : <><Save className="h-4 w-4 mr-2" />Save Edit Permissions</>}
+                      </Button>
+                    </div>
+                  </SettingCard>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
     </PortalListPage>
   );
 }

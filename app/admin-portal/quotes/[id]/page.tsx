@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, FileText, Send, Trash2, ClipboardList, User, Building2, Mail, DollarSign, AlertCircle, ChevronRight } from 'lucide-react';
+import { ArrowLeft, FileText, Send, Trash2, ClipboardList, User, Building2, Mail, DollarSign, AlertCircle, ChevronRight, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { formatMoney } from '@/lib/money';
@@ -363,7 +363,14 @@ export default function AdminQuoteDetail() {
           <CardHeader>
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <CardTitle className="text-2xl">{quote.workOrderTitle}</CardTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CardTitle className="text-2xl">{quote.workOrderTitle}</CardTitle>
+                  {(quote as any).editedAt && (
+                    <span className="inline-flex items-center gap-1 text-sm text-muted-foreground italic">
+                      <Pencil className="h-3.5 w-3.5" />Edited
+                    </span>
+                  )}
+                </div>
                 {quote.workOrderNumber && quote.workOrderId && (
                   <Link href={`/admin-portal/work-orders/${quote.workOrderId}`} className="text-sm text-primary hover:underline mt-1 inline-flex items-center gap-1">
                     <ClipboardList className="h-3.5 w-3.5" />

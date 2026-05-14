@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ClipboardList, Calendar, MapPin, Search, Stethoscope, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock, Receipt } from 'lucide-react';
+import { ClipboardList, Calendar, MapPin, Search, Stethoscope, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight, Clock, Receipt, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatAddress } from '@/lib/utils';
 import { PortalListPage } from '@/components/ui/portal-list-page';
@@ -338,6 +338,13 @@ export default function SubcontractorBidding() {
   // ─── Reject Quote Request ───
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
+  // ─── Edit permissions (loaded from subcontractorEditPermissions/{uid}) ───
+  const [editPerms, setEditPerms] = useState({ canEditInvoice: false, canEditQuote: false, canEditDiagnostic: false });
+
+  // ─── Edit mode flags ───
+  const [isDiagnosticEdit, setIsDiagnosticEdit] = useState(false);
+  const [isDiagnosticResultsEdit, setIsDiagnosticResultsEdit] = useState(false);
+
   // ─── Direct Invoice (bypass quote — only for companies with allowSubDirectInvoiceFromBidding) ───
   // eligibleDirectInvoiceIds: server-verified fallback for biddingWorkOrders docs created
   // before the allowSubDirectInvoiceFromBidding field was denormalized at share time.
@@ -354,6 +361,20 @@ export default function SubcontractorBidding() {
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
+        // Load edit permissions from Firestore (fire-and-forget; non-blocking)
+        getDoc(doc(db, 'subcontractorEditPermissions', user.uid))
+          .then(snap => {
+            if (snap.exists()) {
+              const d = snap.data() as any;
+              setEditPerms({
+                canEditInvoice: d.canEditInvoice ?? false,
+                canEditQuote: d.canEditQuote ?? false,
+                canEditDiagnostic: d.canEditDiagnostic ?? false,
+              });
+            }
+          })
+          .catch(console.error);
+
         // Fetch all active bidding rows for this sub; filter client-side so we
         // can show in-progress/accepted/rejected states without a composite
         // index on (subcontractorId, status, sharedAt).
@@ -367,9 +388,10 @@ export default function SubcontractorBidding() {
           (snapshot) => {
             const biddingData = snapshot.docs
               .map(d => ({ id: d.id, ...d.data() })) as BiddingWorkOrder[];
-            // Show everything except hard-terminal states (sub rejected, fully quoted)
+            // Show everything except rejected. Keep 'quoted' so subs with edit
+            // permission can update their quote.
             const visible = biddingData
-              .filter(b => !['rejected', 'quoted'].includes(b.status))
+              .filter(b => b.status !== 'rejected')
               .sort((a, b) => (b.sharedAt?.toMillis?.() ?? 0) - (a.sharedAt?.toMillis?.() ?? 0));
             setBiddingWorkOrders(visible);
             setLoading(false);
@@ -468,11 +490,35 @@ export default function SubcontractorBidding() {
     setShowDirectQuoteForm(true);
   };
 
+  const openEditQuoteForm = async (bidding: BiddingWorkOrder) => {
+    setSelectedBidding(bidding);
+    const quoteId = (bidding as any).quoteId;
+    if (quoteId) {
+      try {
+        const qSnap = await getDoc(doc(db, 'quotes', quoteId));
+        if (qSnap.exists()) {
+          const d = qSnap.data() as any;
+          setDirectQuoteLineItems(d.lineItems?.length ? d.lineItems : [
+            { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+          ]);
+          setDirectQuoteNotes(d.notes || '');
+          const dateObj = d.proposedServiceDate?.toDate?.() || (d.proposedServiceDate ? new Date(d.proposedServiceDate) : null);
+          setDirectQuoteServiceDate(dateObj ? dateObj.toISOString().split('T')[0] : '');
+          setDirectQuoteServiceTime(d.proposedServiceTime || '');
+        }
+      } catch (err) {
+        console.error('Could not load quote for edit:', err);
+      }
+    }
+    setShowDirectQuoteForm(true);
+  };
+
   // ─── Submit Diagnostic Results helpers ───
-  const openResultsForm = (bidding: BiddingWorkOrder) => {
+  const openResultsForm = (bidding: BiddingWorkOrder, isEdit = false) => {
     setResultsBidding(bidding);
     setResultsText(bidding.diagnosticResults || '');
     setResultsImages(bidding.diagnosticResultsImages || []);
+    setIsDiagnosticResultsEdit(isEdit);
     setShowResultsForm(true);
   };
 
@@ -505,6 +551,28 @@ export default function SubcontractorBidding() {
       { description: 'Materials', quantity: 1, unitPrice: 0, amount: 0 },
     ]);
     setDirectInvoiceNotes('');
+    setShowDirectInvoiceForm(true);
+  };
+
+  const openEditInvoiceForm = async (bidding: BiddingWorkOrder) => {
+    setDirectInvoiceBidding(bidding);
+    const invoiceId = (bidding as any).directInvoiceId;
+    if (invoiceId) {
+      try {
+        const invSnap = await getDoc(doc(db, 'invoices', invoiceId));
+        if (invSnap.exists()) {
+          const d = invSnap.data() as any;
+          setDirectInvoiceLineItems(d.lineItems?.length ? d.lineItems : [
+            { description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 },
+          ]);
+          setDirectInvoiceNotes(d.notes || '');
+        }
+      } catch (err) {
+        console.error('Could not load invoice for edit:', err);
+        setDirectInvoiceLineItems([{ description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 }]);
+        setDirectInvoiceNotes('');
+      }
+    }
     setShowDirectInvoiceForm(true);
   };
 
@@ -554,6 +622,9 @@ export default function SubcontractorBidding() {
       const subName = (subData as any).fullName || (subData as any).businessName || 'Subcontractor';
 
       const idToken = await currentUser.getIdToken();
+      const isEditMode = directInvoiceBidding.status === 'direct_invoice_submitted';
+      const existingInvoiceId = isEditMode ? (directInvoiceBidding as any).directInvoiceId : undefined;
+
       const res = await fetch('/api/work-orders/bidding-direct-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
@@ -564,6 +635,7 @@ export default function SubcontractorBidding() {
           notes: directInvoiceNotes,
           totalAmount: directInvoiceTotal,
           subName,
+          ...(existingInvoiceId ? { existingInvoiceId } : {}),
         }),
       });
 
@@ -575,31 +647,33 @@ export default function SubcontractorBidding() {
 
       const data = await res.json();
 
-      // Fire-and-forget: notify admins that a direct invoice arrived.
-      void (async () => {
-        try {
-          await fetch('/api/email/send-quote-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            keepalive: true,
-            body: JSON.stringify({
-              notifyAdmins: true,
-              workOrderNumber: directInvoiceBidding.workOrderNumber || primaryWorkOrderId,
-              workOrderTitle: directInvoiceBidding.workOrderTitle,
-              subcontractorName: subName,
-              quoteAmount: directInvoiceTotal,
-              category: directInvoiceBidding.category || '',
-              locationName: directInvoiceBidding.locationName || '',
-              priority: directInvoiceBidding.priority || '',
-              description: directInvoiceBidding.workOrderDescription || '',
-            }),
-          });
-        } catch (err) {
-          console.error('[bidding] Direct invoice admin notification failed:', err);
-        }
-      })();
+      if (!isEditMode) {
+        // Fire-and-forget: notify admins that a direct invoice arrived.
+        void (async () => {
+          try {
+            await fetch('/api/email/send-quote-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              keepalive: true,
+              body: JSON.stringify({
+                notifyAdmins: true,
+                workOrderNumber: directInvoiceBidding.workOrderNumber || primaryWorkOrderId,
+                workOrderTitle: directInvoiceBidding.workOrderTitle,
+                subcontractorName: subName,
+                quoteAmount: directInvoiceTotal,
+                category: directInvoiceBidding.category || '',
+                locationName: directInvoiceBidding.locationName || '',
+                priority: directInvoiceBidding.priority || '',
+                description: directInvoiceBidding.workOrderDescription || '',
+              }),
+            });
+          } catch (err) {
+            console.error('[bidding] Direct invoice admin notification failed:', err);
+          }
+        })();
+      }
 
-      toast.success(`Invoice ${(data as any).invoiceNumber} submitted successfully!`);
+      toast.success(isEditMode ? 'Invoice updated successfully!' : `Invoice ${(data as any).invoiceNumber} submitted successfully!`);
       setShowDirectInvoiceForm(false);
       setDirectInvoiceBidding(null);
       setDirectInvoiceLineItems([
@@ -633,12 +707,14 @@ export default function SubcontractorBidding() {
       const subData = subDoc.exists() ? subDoc.data() : {};
       const subName = (subData as any).fullName || (subData as any).businessName || 'Subcontractor';
 
-      // 1) Update the bidding card → diagnostic_results_submitted
+      // 1) Update the bidding card
       await updateDoc(doc(db, 'biddingWorkOrders', resultsBidding.id), {
-        status: 'diagnostic_results_submitted',
+        ...(isDiagnosticResultsEdit ? {} : { status: 'diagnostic_results_submitted', diagnosticResultsSubmittedAt: serverTimestamp() }),
         diagnosticResults: trimmed,
         diagnosticResultsImages: resultsImages,
-        diagnosticResultsSubmittedAt: serverTimestamp(),
+        ...(isDiagnosticResultsEdit
+          ? { diagnosticResultsEditedAt: serverTimestamp(), diagnosticResultsEditedBy: subName }
+          : {}),
         updatedAt: serverTimestamp(),
       });
 
@@ -677,19 +753,21 @@ export default function SubcontractorBidding() {
         console.warn('Could not mirror diagnostic results onto work order:', workOrderUpdateError);
       }
 
-      // Fire-and-forget: notify admins + client that results are in
-      const diagTok = await auth.currentUser?.getIdToken().catch(() => undefined);
-      notifyDiagnosticResultsSubmitted(
-        resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0] || '',
-        resultsBidding.workOrderNumber || resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0] || '',
-        subName,
-        resultsBidding.clientId || null,
-        diagTok,
-      ).catch(console.error);
+      if (!isDiagnosticResultsEdit) {
+        const diagTok = await auth.currentUser?.getIdToken().catch(() => undefined);
+        notifyDiagnosticResultsSubmitted(
+          resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0] || '',
+          resultsBidding.workOrderNumber || resultsBidding.workOrderId || resultsBidding.workOrderIds?.[0] || '',
+          subName,
+          resultsBidding.clientId || null,
+          diagTok,
+        ).catch(console.error);
+      }
 
-      toast.success('Diagnostic results submitted. You can now submit your quote.');
+      toast.success(isDiagnosticResultsEdit ? 'Diagnostic results updated successfully!' : 'Diagnostic results submitted. You can now submit your quote.');
       setShowResultsForm(false);
       setResultsBidding(null);
+      setIsDiagnosticResultsEdit(false);
       setResultsText('');
       setResultsImages([]);
     } catch (error: any) {
@@ -758,146 +836,205 @@ export default function SubcontractorBidding() {
         metadata: { source: 'subcontractor_bidding_direct', workOrderNumber: selectedBidding.workOrderNumber },
       });
 
-      const quoteRef = await addDoc(collection(db, 'quotes'), {
-        workOrderId: primaryWorkOrderId,
-        ...(Array.isArray(selectedBidding.workOrderIds) && selectedBidding.workOrderIds.length >= 2
-          ? { workOrderIds: selectedBidding.workOrderIds.map(String) }
-          : {}),
-        ...(selectedBidding.workOrderGroupId ? { workOrderGroupId: String(selectedBidding.workOrderGroupId) } : {}),
-        workOrderNumber: selectedBidding.workOrderNumber,
-        workOrderTitle: selectedBidding.workOrderTitle,
-        subcontractorId: currentUser.uid,
-        subcontractorName: subData.fullName || subData.businessName,
-        subcontractorEmail: subData.email,
-        clientId: selectedBidding.clientId,
-        clientName: selectedBidding.clientName,
-        clientEmail: (selectedBidding as any).clientEmail || '',
-        laborCost: labor,
-        materialCost: material,
-        additionalCosts: 0,
-        discountAmount: 0,
-        totalAmount: total,
-        originalAmount: total,
-        proposedServiceDate: new Date(directQuoteServiceDate),
-        proposedServiceTime: directQuoteServiceTime,
-        lineItems: validItems,
-        notes: directQuoteNotes,
-        status: 'pending',
-        isDiagnosticQuote: false,
-        createdBy: currentUser.uid,
-        creationSource: 'subcontractor_bidding_direct',
-        timeline: [timelineEvent],
-        systemInformation: {
-          createdBy: { id: currentUser.uid, name: createdByName, role: 'subcontractor', timestamp: Timestamp.now() },
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      const isEditMode = selectedBidding.status === 'quoted';
+      const existingQuoteId = isEditMode ? (selectedBidding as any).quoteId : null;
 
-      const quoteNotifyToken = await auth.currentUser?.getIdToken().catch(() => undefined);
-      await notifyQuoteSubmission(
-        selectedBidding.clientId,
-        primaryWorkOrderId,
-        selectedBidding.workOrderNumber || primaryWorkOrderId,
-        subData.fullName || subData.businessName,
-        total,
-        quoteNotifyToken,
-      );
-
-      // Admin email fan-out — kicked off here, but explicitly NOT awaited
-      // on the critical path (per the no-stuck-buttons rule the rest of
-      // the app uses). Using keepalive so the request survives the page
-      // navigation that follows the success toast. Detailed per-recipient
-      // outcomes land in the emailLogs collection (admin email-logs page)
-      // so audits aren't blocked by us not awaiting here.
-      void (async () => {
-        try {
-          const res = await fetch('/api/email/send-quote-notification', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            keepalive: true,
-            body: JSON.stringify({
-              notifyAdmins: true,
-              workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
-              workOrderTitle: selectedBidding.workOrderTitle,
-              subcontractorName: subData.fullName || subData.businessName,
-              quoteAmount: total,
-              category: selectedBidding.category || '',
-              locationName: selectedBidding.locationName || '',
-              priority: selectedBidding.priority || '',
-              description: selectedBidding.workOrderDescription || '',
-            }),
-          });
-          const data = await res.json().catch(() => ({}));
-          // Soft notice (no toast disruption) when the admin fan-out
-          // partially or completely failed, so the sub knows the system
-          // logged it and isn't silently dropping their submission.
-          if (data && typeof data.adminsTotal === 'number') {
-            if (data.adminsTotal === 0) {
-              console.warn('[bidding] Admin notification skipped — no admin recipients configured.');
-            } else if (data.adminsFailed > 0) {
-              console.warn(
-                `[bidding] Admin notification partial: ${data.adminsSent}/${data.adminsTotal} sent, ${data.adminsFailed} failed. See emailLogs.`,
-              );
-            }
-          }
-        } catch (err) {
-          console.error('[bidding] Admin notification fetch failed:', err);
-        }
-      })();
-
-      // Update work order status + quotesReceived (best effort)
-      try {
-        const ids = Array.isArray(selectedBidding.workOrderIds) && selectedBidding.workOrderIds.length >= 2
-          ? selectedBidding.workOrderIds.map(String)
-          : [primaryWorkOrderId];
-        await Promise.all(ids.map(async (woId) => {
-          const workOrderRef = doc(db, 'workOrders', woId);
-          const workOrderSnapshot = await getDoc(workOrderRef);
-          if (!workOrderSnapshot.exists()) return;
-          const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
-          const statusesEligibleForQuote = ['pending', 'approved', 'bidding', 'diagnostic_accepted', 'diagnostic_results_submitted'];
-          const woData = workOrderSnapshot.data();
-          const existingTimeline = woData?.timeline || [];
-          const existingSysInfo = woData?.systemInformation || {};
-          const woTimelineEvent = {
-            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            timestamp: Timestamp.now(),
-            type: 'quote_received',
-            userId: currentUser.uid,
-            userName: subData.fullName || subData.businessName,
-            userRole: 'subcontractor',
-            details: `Quote received from ${subData.fullName || subData.businessName} - ${formatMoney(total)}`,
-            metadata: {
-              quoteId: quoteRef.id,
-              amount: total,
-              ...(selectedBidding.workOrderGroupId ? { workOrderGroupId: selectedBidding.workOrderGroupId } : {}),
-            },
-          };
-          const updatedSysInfo = {
-            ...existingSysInfo,
-            quotesReceived: [
-              ...(existingSysInfo.quotesReceived || []),
-              { quoteId: quoteRef.id, subcontractorId: currentUser.uid, subcontractorName: subData.fullName || subData.businessName, amount: total, timestamp: Timestamp.now() },
-            ],
-          };
-          if (currentStatus === 'quotes_received') {
-            await updateDoc(workOrderRef, { updatedAt: serverTimestamp(), timeline: [...existingTimeline, woTimelineEvent], systemInformation: updatedSysInfo });
-          } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
-            await updateDoc(workOrderRef, { status: 'quotes_received', quoteReceivedAt: serverTimestamp(), updatedAt: serverTimestamp(), timeline: [...existingTimeline, woTimelineEvent], systemInformation: updatedSysInfo });
-          }
-        }));
-      } catch (e) { console.error('Quote submitted, but failed to update work order:', e); }
-
-      try {
-        await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
-          status: 'quoted',
-          quotedAt: serverTimestamp(),
+      let quoteRef: { id: string };
+      if (isEditMode && existingQuoteId) {
+        // Update existing quote
+        const editTimelineEvent = createQuoteTimelineEvent({
+          type: 'created',
+          userId: currentUser.uid,
+          userName: createdByName,
+          userRole: 'subcontractor',
+          details: `Quote updated — total ${formatMoney(total)}`,
+          metadata: { source: 'subcontractor_bidding_direct_edit' },
+        });
+        const existingQSnap = await getDoc(doc(db, 'quotes', existingQuoteId));
+        const existingQTimeline = existingQSnap.exists() ? (existingQSnap.data().timeline || []) : [];
+        await updateDoc(doc(db, 'quotes', existingQuoteId), {
+          laborCost: labor,
+          materialCost: material,
+          totalAmount: total,
+          originalAmount: total,
+          proposedServiceDate: new Date(directQuoteServiceDate),
+          proposedServiceTime: directQuoteServiceTime,
+          lineItems: validItems,
+          notes: directQuoteNotes,
+          editedAt: serverTimestamp(),
+          editedBy: currentUser.uid,
+          editedByName: createdByName,
+          updatedAt: serverTimestamp(),
+          timeline: [...existingQTimeline, editTimelineEvent],
+        });
+        quoteRef = { id: existingQuoteId };
+      } else {
+        quoteRef = await addDoc(collection(db, 'quotes'), {
+          workOrderId: primaryWorkOrderId,
+          ...(Array.isArray(selectedBidding.workOrderIds) && selectedBidding.workOrderIds.length >= 2
+            ? { workOrderIds: selectedBidding.workOrderIds.map(String) }
+            : {}),
+          ...(selectedBidding.workOrderGroupId ? { workOrderGroupId: String(selectedBidding.workOrderGroupId) } : {}),
+          workOrderNumber: selectedBidding.workOrderNumber,
+          workOrderTitle: selectedBidding.workOrderTitle,
+          subcontractorId: currentUser.uid,
+          subcontractorName: subData.fullName || subData.businessName,
+          subcontractorEmail: subData.email,
+          clientId: selectedBidding.clientId,
+          clientName: selectedBidding.clientName,
+          clientEmail: (selectedBidding as any).clientEmail || '',
+          laborCost: labor,
+          materialCost: material,
+          additionalCosts: 0,
+          discountAmount: 0,
+          totalAmount: total,
+          originalAmount: total,
+          proposedServiceDate: new Date(directQuoteServiceDate),
+          proposedServiceTime: directQuoteServiceTime,
+          lineItems: validItems,
+          notes: directQuoteNotes,
+          status: 'pending',
+          isDiagnosticQuote: false,
+          createdBy: currentUser.uid,
+          creationSource: 'subcontractor_bidding_direct',
+          timeline: [timelineEvent],
+          systemInformation: {
+            createdBy: { id: currentUser.uid, name: createdByName, role: 'subcontractor', timestamp: Timestamp.now() },
+          },
+          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-      } catch (e) { console.error('Quote submitted, but failed to update biddingWorkOrder:', e); }
+      }
 
-      toast.success('Quote submitted successfully!');
+      if (!isEditMode) {
+        const quoteNotifyToken = await auth.currentUser?.getIdToken().catch(() => undefined);
+        await notifyQuoteSubmission(
+          selectedBidding.clientId,
+          primaryWorkOrderId,
+          selectedBidding.workOrderNumber || primaryWorkOrderId,
+          subData.fullName || subData.businessName,
+          total,
+          quoteNotifyToken,
+        );
+
+        void (async () => {
+          try {
+            const res = await fetch('/api/email/send-quote-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              keepalive: true,
+              body: JSON.stringify({
+                notifyAdmins: true,
+                workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+                workOrderTitle: selectedBidding.workOrderTitle,
+                subcontractorName: subData.fullName || subData.businessName,
+                quoteAmount: total,
+                category: selectedBidding.category || '',
+                locationName: selectedBidding.locationName || '',
+                priority: selectedBidding.priority || '',
+                description: selectedBidding.workOrderDescription || '',
+              }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (data && typeof data.adminsTotal === 'number') {
+              if (data.adminsTotal === 0) {
+                console.warn('[bidding] Admin notification skipped — no admin recipients configured.');
+              } else if (data.adminsFailed > 0) {
+                console.warn(`[bidding] Admin notification partial: ${data.adminsSent}/${data.adminsTotal} sent, ${data.adminsFailed} failed.`);
+              }
+            }
+          } catch (err) {
+            console.error('[bidding] Admin notification fetch failed:', err);
+          }
+        })();
+
+        // Update work order status + quotesReceived (best effort)
+        try {
+          const ids = Array.isArray(selectedBidding.workOrderIds) && selectedBidding.workOrderIds.length >= 2
+            ? selectedBidding.workOrderIds.map(String)
+            : [primaryWorkOrderId];
+          await Promise.all(ids.map(async (woId) => {
+            const workOrderRef = doc(db, 'workOrders', woId);
+            const workOrderSnapshot = await getDoc(workOrderRef);
+            if (!workOrderSnapshot.exists()) return;
+            const currentStatus = workOrderSnapshot.data()?.status as string | undefined;
+            const statusesEligibleForQuote = ['pending', 'approved', 'bidding', 'diagnostic_accepted', 'diagnostic_results_submitted'];
+            const woData = workOrderSnapshot.data();
+            const existingTimeline = woData?.timeline || [];
+            const existingSysInfo = woData?.systemInformation || {};
+            const woTimelineEvent = {
+              id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              timestamp: Timestamp.now(),
+              type: 'quote_received',
+              userId: currentUser.uid,
+              userName: subData.fullName || subData.businessName,
+              userRole: 'subcontractor',
+              details: `Quote received from ${subData.fullName || subData.businessName} - ${formatMoney(total)}`,
+              metadata: {
+                quoteId: quoteRef.id,
+                amount: total,
+                ...(selectedBidding.workOrderGroupId ? { workOrderGroupId: selectedBidding.workOrderGroupId } : {}),
+              },
+            };
+            const updatedSysInfo = {
+              ...existingSysInfo,
+              quotesReceived: [
+                ...(existingSysInfo.quotesReceived || []),
+                { quoteId: quoteRef.id, subcontractorId: currentUser.uid, subcontractorName: subData.fullName || subData.businessName, amount: total, timestamp: Timestamp.now() },
+              ],
+            };
+            if (currentStatus === 'quotes_received') {
+              await updateDoc(workOrderRef, { updatedAt: serverTimestamp(), timeline: [...existingTimeline, woTimelineEvent], systemInformation: updatedSysInfo });
+            } else if (!currentStatus || statusesEligibleForQuote.includes(currentStatus)) {
+              await updateDoc(workOrderRef, { status: 'quotes_received', quoteReceivedAt: serverTimestamp(), updatedAt: serverTimestamp(), timeline: [...existingTimeline, woTimelineEvent], systemInformation: updatedSysInfo });
+            }
+          }));
+        } catch (e) { console.error('Quote submitted, but failed to update work order:', e); }
+
+        try {
+          await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
+            status: 'quoted',
+            quotedAt: serverTimestamp(),
+            quoteId: quoteRef.id,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (e) { console.error('Quote submitted, but failed to update biddingWorkOrder:', e); }
+      } else {
+        // Edit mode — add a quote_updated timeline event on the work order
+        try {
+          const primaryId = selectedBidding.workOrderId || selectedBidding.workOrderIds?.[0];
+          if (primaryId) {
+            const woRef = doc(db, 'workOrders', primaryId);
+            const woSnap = await getDoc(woRef);
+            if (woSnap.exists()) {
+              const existingTimeline = woSnap.data().timeline || [];
+              await updateDoc(woRef, {
+                updatedAt: serverTimestamp(),
+                timeline: [...existingTimeline, {
+                  id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  timestamp: Timestamp.now(),
+                  type: 'quote_updated',
+                  userId: currentUser.uid,
+                  userName: subData.fullName || subData.businessName,
+                  userRole: 'subcontractor',
+                  details: `Quote updated by ${subData.fullName || subData.businessName} — ${formatMoney(total)}`,
+                  metadata: { quoteId: quoteRef.id, amount: total },
+                }],
+              });
+            }
+          }
+        } catch (e) { console.error('Quote updated, but failed to add WO timeline event:', e); }
+
+        try {
+          await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
+            quoteEditedAt: serverTimestamp(),
+            quoteEditedBy: createdByName,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (e) { console.error('Quote updated, but failed to stamp biddingWorkOrder:', e); }
+      }
+
+      toast.success(isEditMode ? 'Quote updated successfully!' : 'Quote submitted successfully!');
       setShowDirectQuoteForm(false);
       setSelectedBidding(null);
       setDirectQuoteLineItems([
@@ -951,6 +1088,30 @@ export default function SubcontractorBidding() {
     } finally {
       setRejectingId(null);
     }
+  };
+
+  const openEditDiagnosticForm = async (bidding: BiddingWorkOrder) => {
+    setSelectedBidding(bidding);
+    setDiagnosticFee(String(bidding.diagnosticFee || ''));
+    const diagQuoteId = (bidding as any).diagnosticQuoteId;
+    if (diagQuoteId) {
+      try {
+        const qSnap = await getDoc(doc(db, 'quotes', diagQuoteId));
+        if (qSnap.exists()) {
+          const d = qSnap.data() as any;
+          const dateObj = d.proposedServiceDate?.toDate?.() || (d.proposedServiceDate ? new Date(d.proposedServiceDate) : null);
+          setQuoteForm({
+            proposedServiceDate: dateObj ? dateObj.toISOString().split('T')[0] : '',
+            proposedServiceTime: d.proposedServiceTime || '',
+            notes: d.notes || '',
+          });
+        }
+      } catch (err) {
+        console.error('Could not load diagnostic quote for edit:', err);
+      }
+    }
+    setIsDiagnosticEdit(true);
+    setShowQuoteForm(true);
   };
 
   const handleSubmitQuote = async () => {
@@ -1017,147 +1178,155 @@ export default function SubcontractorBidding() {
           diagnosticFee: feeNum,
         },
       });
-      // Diagnostic Requests skip admin markup — send directly to the client.
-      const quoteRef = await addDoc(collection(db, 'quotes'), {
-        workOrderId: workOrderId,
-        workOrderNumber: selectedBidding.workOrderNumber,
-        workOrderTitle: selectedBidding.workOrderTitle,
-        subcontractorId: currentUser.uid,
-        subcontractorName: subData.fullName || subData.businessName,
-        subcontractorEmail: subData.email,
-        clientId: selectedBidding.clientId,
-        clientName: selectedBidding.clientName,
-        clientEmail: clientEmail,
-        laborCost: 0,
-        materialCost: 0,
-        additionalCosts: 0,
-        discountAmount: 0,
-        totalAmount: total,
-        originalAmount: total,
-        clientAmount: total,
-        markupPercentage: 0,
-        proposedServiceDate: new Date(quoteForm.proposedServiceDate),
-        proposedServiceTime: quoteForm.proposedServiceTime,
-        lineItems: diagnosticLineItem,
-        notes: quoteForm.notes,
-        status: 'sent_to_client',
-        sentToClientAt: serverTimestamp(),
-        // Diagnostic → Repair workflow
-        isDiagnosticQuote: true,
-        diagnosticFee: feeNum,
-        createdBy: currentUser.uid,
-        creationSource: 'subcontractor_bidding',
-        timeline: [timelineEvent],
-        systemInformation: {
-          createdBy: {
-            id: currentUser.uid,
-            name: createdByName,
-            role: 'subcontractor',
-            timestamp: Timestamp.now(),
-          },
-          sentToClientBy: {
-            id: currentUser.uid,
-            name: createdByName,
-            role: 'subcontractor',
-            timestamp: Timestamp.now(),
-            autoForwarded: true,
-          },
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      const existingDiagQuoteId = isDiagnosticEdit ? (selectedBidding as any).diagnosticQuoteId : null;
 
-      // Notify admins + client that a Diagnostic Request arrived
-      // (admin is informed but approval is not required — it went straight to client).
-      fetch('/api/notifications/diagnostic-request-submitted', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        keepalive: true,
-        body: JSON.stringify({
-          clientId: selectedBidding.clientId,
-          clientEmail,
-          clientName: selectedBidding.clientName,
-          workOrderId: selectedBidding.workOrderId,
-          workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
-          workOrderTitle: selectedBidding.workOrderTitle,
-          subcontractorName: subData.fullName || subData.businessName,
+      let quoteRef: { id: string };
+      if (isDiagnosticEdit && existingDiagQuoteId) {
+        // Update existing diagnostic quote
+        const editTlEvent = createQuoteTimelineEvent({
+          type: 'created',
+          userId: currentUser.uid,
+          userName: createdByName,
+          userRole: 'subcontractor',
+          details: `Diagnostic request updated — fee ${formatMoney(feeNum)}`,
+          metadata: { source: 'subcontractor_bidding_edit', isDiagnosticQuote: true },
+        });
+        const existingDQSnap = await getDoc(doc(db, 'quotes', existingDiagQuoteId));
+        const existingDQTimeline = existingDQSnap.exists() ? (existingDQSnap.data().timeline || []) : [];
+        await updateDoc(doc(db, 'quotes', existingDiagQuoteId), {
+          totalAmount: total,
+          originalAmount: total,
+          clientAmount: total,
           diagnosticFee: feeNum,
-          proposedServiceDate: quoteForm.proposedServiceDate,
+          lineItems: diagnosticLineItem,
+          proposedServiceDate: new Date(quoteForm.proposedServiceDate),
           proposedServiceTime: quoteForm.proposedServiceTime,
-        }),
-      }).catch(console.error);
-
-      // Best-effort downstream updates; quote creation above is the critical path.
-      try {
-        // Record the diagnostic request on the parent work order timeline, but
-        // DO NOT flip the work order to 'quotes_received' — diagnostic requests
-        // are a distinct flow that does not require admin markup.
-        const workOrderRef = doc(db, 'workOrders', selectedBidding.workOrderId);
-        const workOrderSnapshot = await getDoc(workOrderRef);
-        if (workOrderSnapshot.exists()) {
-          const workOrderData = workOrderSnapshot.data();
-          const existingTimeline = workOrderData?.timeline || [];
-          const existingSysInfo = workOrderData?.systemInformation || {};
-
-          const woTimelineEvent = {
-            id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            timestamp: Timestamp.now(),
-            type: 'diagnostic_request_received',
-            userId: currentUser.uid,
-            userName: subData.fullName || subData.businessName,
-            userRole: 'subcontractor',
-            details: `Diagnostic Request received from ${subData.fullName || subData.businessName} - ${formatMoney(total)} (sent directly to client)`,
-            metadata: {
-              quoteId: quoteRef.id,
-              amount: total,
-              diagnosticFee: feeNum,
-              proposedServiceDate: quoteForm.proposedServiceDate,
-              proposedServiceTime: quoteForm.proposedServiceTime,
-              isDiagnosticQuote: true,
-            },
-          };
-
-          const existingDiag = existingSysInfo.diagnosticRequests || [];
-          const updatedSysInfo = {
-            ...existingSysInfo,
-            diagnosticRequests: [...existingDiag, {
-              quoteId: quoteRef.id,
-              subcontractorId: currentUser.uid,
-              subcontractorName: subData.fullName || subData.businessName,
-              diagnosticFee: feeNum,
-              timestamp: Timestamp.now(),
-            }],
-          };
-
-          await updateDoc(workOrderRef, {
-            updatedAt: serverTimestamp(),
-            timeline: [...existingTimeline, woTimelineEvent],
-            systemInformation: updatedSysInfo,
-          });
-        }
-      } catch (workOrderUpdateError) {
-        console.error('Diagnostic request submitted, but failed to update work order:', workOrderUpdateError);
-      }
-
-      try {
-        // Remove the bidding card from the sub's list (they've submitted their diagnostic)
-        await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
-          status: 'diagnostic_requested',
-          quotedAt: serverTimestamp(),
+          notes: quoteForm.notes,
+          editedAt: serverTimestamp(),
+          editedBy: currentUser.uid,
+          editedByName: createdByName,
+          updatedAt: serverTimestamp(),
+          timeline: [...existingDQTimeline, editTlEvent],
+        });
+        quoteRef = { id: existingDiagQuoteId };
+      } else {
+        // Diagnostic Requests skip admin markup — send directly to the client.
+        quoteRef = await addDoc(collection(db, 'quotes'), {
+          workOrderId: workOrderId,
+          workOrderNumber: selectedBidding.workOrderNumber,
+          workOrderTitle: selectedBidding.workOrderTitle,
+          subcontractorId: currentUser.uid,
+          subcontractorName: subData.fullName || subData.businessName,
+          subcontractorEmail: subData.email,
+          clientId: selectedBidding.clientId,
+          clientName: selectedBidding.clientName,
+          clientEmail: clientEmail,
+          laborCost: 0,
+          materialCost: 0,
+          additionalCosts: 0,
+          discountAmount: 0,
+          totalAmount: total,
+          originalAmount: total,
+          clientAmount: total,
+          markupPercentage: 0,
+          proposedServiceDate: new Date(quoteForm.proposedServiceDate),
+          proposedServiceTime: quoteForm.proposedServiceTime,
+          lineItems: diagnosticLineItem,
+          notes: quoteForm.notes,
+          status: 'sent_to_client',
+          sentToClientAt: serverTimestamp(),
+          isDiagnosticQuote: true,
+          diagnosticFee: feeNum,
+          createdBy: currentUser.uid,
+          creationSource: 'subcontractor_bidding',
+          timeline: [timelineEvent],
+          systemInformation: {
+            createdBy: { id: currentUser.uid, name: createdByName, role: 'subcontractor', timestamp: Timestamp.now() },
+            sentToClientBy: { id: currentUser.uid, name: createdByName, role: 'subcontractor', timestamp: Timestamp.now(), autoForwarded: true },
+          },
+          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-      } catch (biddingUpdateError) {
-        console.error('Diagnostic request submitted, but failed to update biddingWorkOrder:', biddingUpdateError);
       }
 
-      toast.success('Diagnostic Request sent to client!');
+      if (!isDiagnosticEdit) {
+        // Notify admins + client that a Diagnostic Request arrived
+        fetch('/api/notifications/diagnostic-request-submitted', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          keepalive: true,
+          body: JSON.stringify({
+            clientId: selectedBidding.clientId,
+            clientEmail,
+            clientName: selectedBidding.clientName,
+            workOrderId: selectedBidding.workOrderId,
+            workOrderNumber: selectedBidding.workOrderNumber || selectedBidding.workOrderId,
+            workOrderTitle: selectedBidding.workOrderTitle,
+            subcontractorName: subData.fullName || subData.businessName,
+            diagnosticFee: feeNum,
+            proposedServiceDate: quoteForm.proposedServiceDate,
+            proposedServiceTime: quoteForm.proposedServiceTime,
+          }),
+        }).catch(console.error);
+
+        // Record diagnostic request on the parent work order timeline
+        try {
+          const workOrderRef = doc(db, 'workOrders', selectedBidding.workOrderId);
+          const workOrderSnapshot = await getDoc(workOrderRef);
+          if (workOrderSnapshot.exists()) {
+            const workOrderData = workOrderSnapshot.data();
+            const existingTimeline = workOrderData?.timeline || [];
+            const existingSysInfo = workOrderData?.systemInformation || {};
+            const woTimelineEvent = {
+              id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              timestamp: Timestamp.now(),
+              type: 'diagnostic_request_received',
+              userId: currentUser.uid,
+              userName: subData.fullName || subData.businessName,
+              userRole: 'subcontractor',
+              details: `Diagnostic Request received from ${subData.fullName || subData.businessName} - ${formatMoney(total)} (sent directly to client)`,
+              metadata: { quoteId: quoteRef.id, amount: total, diagnosticFee: feeNum, isDiagnosticQuote: true },
+            };
+            const existingDiag = existingSysInfo.diagnosticRequests || [];
+            const updatedSysInfo = {
+              ...existingSysInfo,
+              diagnosticRequests: [...existingDiag, { quoteId: quoteRef.id, subcontractorId: currentUser.uid, subcontractorName: subData.fullName || subData.businessName, diagnosticFee: feeNum, timestamp: Timestamp.now() }],
+            };
+            await updateDoc(workOrderRef, { updatedAt: serverTimestamp(), timeline: [...existingTimeline, woTimelineEvent], systemInformation: updatedSysInfo });
+          }
+        } catch (workOrderUpdateError) {
+          console.error('Diagnostic request submitted, but failed to update work order:', workOrderUpdateError);
+        }
+
+        try {
+          await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
+            status: 'diagnostic_requested',
+            quotedAt: serverTimestamp(),
+            diagnosticQuoteId: quoteRef.id,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (biddingUpdateError) {
+          console.error('Diagnostic request submitted, but failed to update biddingWorkOrder:', biddingUpdateError);
+        }
+      } else {
+        // Edit mode — stamp the bidding card
+        try {
+          await updateDoc(doc(db, 'biddingWorkOrders', selectedBidding.id), {
+            diagnosticFee: feeNum,
+            diagnosticEditedAt: serverTimestamp(),
+            diagnosticEditedBy: createdByName,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (e) {
+          console.error('Diagnostic request updated, but failed to stamp biddingWorkOrder:', e);
+        }
+      }
+
+      toast.success(isDiagnosticEdit ? 'Diagnostic request updated successfully!' : 'Diagnostic Request sent to client!');
       setShowQuoteForm(false);
       setSelectedBidding(null);
-      setQuoteForm({
-        proposedServiceDate: '',
-        proposedServiceTime: '',
-        notes: '',
-      });
+      setIsDiagnosticEdit(false);
+      setQuoteForm({ proposedServiceDate: '', proposedServiceTime: '', notes: '' });
       setDiagnosticFee('');
     } catch (error) {
       console.error('Error submitting diagnostic bid:', error);
@@ -1263,25 +1432,61 @@ export default function SubcontractorBidding() {
                 {viewWorkOrder.status === 'diagnostic_accepted' && (
                   <Button
                     className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-600/25"
-                    onClick={() => {
-                      openResultsForm(viewWorkOrder);
-                      setViewWorkOrder(null);
-                    }}
+                    onClick={() => { openResultsForm(viewWorkOrder); setViewWorkOrder(null); }}
                   >
                     <Stethoscope className="h-4 w-4" />
                     Submit Diagnostic Results
                   </Button>
                 )}
                 {viewWorkOrder.status === 'diagnostic_results_submitted' && (
+                  <>
+                    <Button
+                      className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25"
+                      onClick={() => { openDirectQuoteForm(viewWorkOrder); setViewWorkOrder(null); }}
+                    >
+                      <FileText className="h-4 w-4" />
+                      Submit Quote
+                    </Button>
+                    {editPerms.canEditDiagnostic && (
+                      <Button
+                        variant="outline"
+                        className="h-10 rounded-xl px-4 font-semibold gap-1.5"
+                        onClick={() => { openResultsForm(viewWorkOrder, true); setViewWorkOrder(null); }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Edit Diagnostic Results
+                      </Button>
+                    )}
+                  </>
+                )}
+                {viewWorkOrder.status === 'diagnostic_requested' && editPerms.canEditDiagnostic && (
                   <Button
-                    className="h-10 rounded-xl px-4 font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-sm shadow-emerald-600/25"
-                    onClick={() => {
-                      openDirectQuoteForm(viewWorkOrder);
-                      setViewWorkOrder(null);
-                    }}
+                    variant="outline"
+                    className="h-10 rounded-xl px-4 font-semibold gap-1.5"
+                    onClick={() => { openEditDiagnosticForm(viewWorkOrder); setViewWorkOrder(null); }}
                   >
-                    <FileText className="h-4 w-4" />
-                    Submit Quote
+                    <Pencil className="h-4 w-4" />
+                    Edit Diagnostic Request
+                  </Button>
+                )}
+                {viewWorkOrder.status === 'quoted' && editPerms.canEditQuote && (
+                  <Button
+                    variant="outline"
+                    className="h-10 rounded-xl px-4 font-semibold gap-1.5"
+                    onClick={() => { openEditQuoteForm(viewWorkOrder); setViewWorkOrder(null); }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit Quote
+                  </Button>
+                )}
+                {viewWorkOrder.status === 'direct_invoice_submitted' && editPerms.canEditInvoice && (
+                  <Button
+                    variant="outline"
+                    className="h-10 rounded-xl px-4 font-semibold gap-1.5"
+                    onClick={() => { openEditInvoiceForm(viewWorkOrder); setViewWorkOrder(null); }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit Invoice
                   </Button>
                 )}
               </div>
@@ -2288,11 +2493,24 @@ export default function SubcontractorBidding() {
                   </div>
                 )}
 
-                {/* Status banner for post-submission states */}
+                {/* Status banners for post-submission states */}
                 {bidding.status === 'diagnostic_requested' && (
-                  <div className="rounded-xl bg-indigo-50 border border-indigo-200/60 px-3 py-2.5 text-xs text-indigo-900 flex items-start gap-2">
-                    <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-indigo-600" />
-                    <span><strong>Diagnostic Request submitted.</strong> Awaiting client approval.</span>
+                  <div className="rounded-xl bg-indigo-50 border border-indigo-200/60 px-3 py-2.5 text-xs text-indigo-900 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-indigo-600" />
+                      <div>
+                        <strong>Diagnostic Request submitted.</strong> Awaiting client approval.
+                        {(bidding as any).diagnosticEditedAt && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-indigo-500 italic"><Pencil className="h-3 w-3" />Edited</span>
+                        )}
+                      </div>
+                    </div>
+                    {editPerms.canEditDiagnostic && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-indigo-300 text-indigo-700 hover:bg-indigo-100"
+                        onClick={() => openEditDiagnosticForm(bidding)}>
+                        <Pencil className="h-3 w-3" />Edit Diagnostic Request
+                      </Button>
+                    )}
                   </div>
                 )}
                 {bidding.status === 'diagnostic_accepted' && (
@@ -2305,12 +2523,22 @@ export default function SubcontractorBidding() {
                   </div>
                 )}
                 {bidding.status === 'diagnostic_results_submitted' && (
-                  <div className="rounded-xl bg-emerald-50 border border-emerald-200/60 px-3 py-2.5 text-xs text-emerald-900 flex items-start gap-2">
-                    <FileText className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
-                    <span>
-                      <strong>Diagnostic results submitted.</strong>
-                      {' '}You can now submit your quote.
-                    </span>
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200/60 px-3 py-2.5 text-xs text-emerald-900 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <FileText className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+                      <div>
+                        <strong>Diagnostic results submitted.</strong>{' '}You can now submit your quote.
+                        {(bidding as any).diagnosticResultsEditedAt && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-emerald-600 italic"><Pencil className="h-3 w-3" />Edited</span>
+                        )}
+                      </div>
+                    </div>
+                    {editPerms.canEditDiagnostic && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                        onClick={() => openResultsForm(bidding, true)}>
+                        <Pencil className="h-3 w-3" />Edit Diagnostic Results
+                      </Button>
+                    )}
                   </div>
                 )}
                 {bidding.status === 'diagnostic_rejected' && (
@@ -2322,14 +2550,48 @@ export default function SubcontractorBidding() {
                     </span>
                   </div>
                 )}
+                {bidding.status === 'quoted' && (
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200/60 px-3 py-2.5 text-xs text-emerald-900 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <FileText className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+                      <div>
+                        <strong>Quote submitted.</strong> Awaiting admin review.
+                        {(bidding as any).quoteEditedAt && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-emerald-700 italic">
+                            <Pencil className="h-3 w-3" />Edited
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {editPerms.canEditQuote && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                        onClick={() => openEditQuoteForm(bidding)}>
+                        <Pencil className="h-3 w-3" />Edit Quote
+                      </Button>
+                    )}
+                  </div>
+                )}
 
                 {/* Status banner — direct invoice submitted */}
                 {bidding.status === 'direct_invoice_submitted' && (
-                  <div className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-2.5 text-xs text-foreground flex items-start gap-2">
-                    <Receipt className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
-                    <span>
-                      <strong>Invoice submitted.</strong> You have been assigned to this work order. Complete the work and mark it done when finished.
-                    </span>
+                  <div className="rounded-xl bg-primary/10 border border-primary/20 px-3 py-2.5 text-xs text-foreground space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Receipt className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                      <div>
+                        <strong>Invoice submitted.</strong> You have been assigned to this work order. Complete the work and mark it done when finished.
+                        {(bidding as any).invoiceEditedAt && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-muted-foreground italic">
+                            <Pencil className="h-3 w-3" />Edited
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {editPerms.canEditInvoice && (
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                        onClick={() => openEditInvoiceForm(bidding)}>
+                        <Pencil className="h-3 w-3" />Edit Invoice
+                      </Button>
+                    )}
                   </div>
                 )}
 

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { FileText, DollarSign, Send, Plus, Trash2, Search, UserPlus, Eye, X } from 'lucide-react';
+import { FileText, DollarSign, Send, Plus, Trash2, Search, UserPlus, Eye, X, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -664,7 +664,16 @@ function QuotesContent() {
                         <div className="text-muted-foreground text-xs mt-0.5">{quote.workOrderNumber || '—'}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">{quote.subcontractorName}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {quote.subcontractorName}
+                        {(quote as any).editedAt && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                            <Pencil className="h-3 w-3" />Edited
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{quote.clientName}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">${(quote.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
@@ -726,7 +735,14 @@ function QuotesContent() {
                     ) : quote.workOrderNumber ? (
                       <p className="text-xs text-muted-foreground truncate">{quote.workOrderNumber}</p>
                     ) : null}
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{quote.subcontractorName}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-xs text-muted-foreground truncate">{quote.subcontractorName}</p>
+                      {(quote as any).editedAt && (
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                          <Pencil className="h-3 w-3" />Edited
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(quote.status)}`}>
                     {quote.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}

@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { biddingWorkOrderId, workOrderId, lineItems, notes, totalAmount, subName: bodySubName } = body;
+    const { biddingWorkOrderId, workOrderId, lineItems, notes, totalAmount, subName: bodySubName, existingInvoiceId } = body;
 
     if (!biddingWorkOrderId || !workOrderId) {
       return NextResponse.json({ error: 'Missing biddingWorkOrderId or workOrderId' }, { status: 400 });
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     const db = await getServerDb();
 
-    // 1. Verify bidding row exists and belongs to this sub in 'pending' state.
+    // 1. Verify bidding row exists and belongs to this sub.
     const biddingRef = doc(db, 'biddingWorkOrders', biddingWorkOrderId);
     const biddingSnap = await getDoc(biddingRef);
     if (!biddingSnap.exists()) {
@@ -59,6 +59,66 @@ export async function POST(request: Request) {
     if (biddingData.subcontractorId !== uid) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
+
+    const isEdit = !!existingInvoiceId;
+
+    if (isEdit) {
+      // ── EDIT PATH ─────────────────────────────────────────────────────────
+      if (biddingData.status !== 'direct_invoice_submitted') {
+        return NextResponse.json({ error: 'Invoice can only be edited while in submitted state' }, { status: 409 });
+      }
+
+      // Verify the invoice exists and belongs to this sub.
+      const invoiceRef = doc(db, 'invoices', existingInvoiceId);
+      const invoiceSnap = await getDoc(invoiceRef);
+      if (!invoiceSnap.exists()) {
+        return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
+      }
+      const invoiceData = invoiceSnap.data();
+      if (invoiceData.subcontractorId !== uid) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      if (['paid', 'sent'].includes(invoiceData.status)) {
+        return NextResponse.json({ error: 'Invoice cannot be edited after it has been sent or paid' }, { status: 409 });
+      }
+
+      const subSnap = await getDoc(doc(db, 'subcontractors', uid));
+      const subData = subSnap.exists() ? subSnap.data() : {};
+      const subName: string = bodySubName || (subData.fullName as string) || (subData.businessName as string) || 'Subcontractor';
+
+      const existingTimeline = Array.isArray(invoiceData.timeline) ? invoiceData.timeline : [];
+      const editTimelineEvent = {
+        id: `edited_${Date.now()}`,
+        timestamp: Timestamp.now(),
+        type: 'edited',
+        userId: uid,
+        userName: subName,
+        userRole: 'subcontractor',
+        details: `Invoice updated by ${subName}`,
+        metadata: { totalAmount, lineItems },
+      };
+
+      await updateDoc(invoiceRef, {
+        lineItems,
+        totalAmount,
+        notes: notes || '',
+        editedAt: serverTimestamp(),
+        editedBy: uid,
+        editedByName: subName,
+        updatedAt: serverTimestamp(),
+        timeline: [...existingTimeline, editTimelineEvent],
+      });
+
+      await updateDoc(biddingRef, {
+        invoiceEditedAt: serverTimestamp(),
+        invoiceEditedBy: subName,
+        updatedAt: serverTimestamp(),
+      });
+
+      return NextResponse.json({ success: true, invoiceId: existingInvoiceId, invoiceNumber: invoiceData.invoiceNumber });
+    }
+
+    // ── CREATE PATH (original) ─────────────────────────────────────────────
     if (biddingData.status !== 'pending') {
       return NextResponse.json(
         { error: 'This bidding opportunity is no longer open for a direct invoice' },

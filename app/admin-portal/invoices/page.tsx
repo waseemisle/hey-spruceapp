@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw, Loader2, FileText, ArrowRight } from 'lucide-react';
+import { Receipt, Download, Send, CreditCard, Edit2, Save, X, Plus, Trash2, Search, Upload, Eye, Zap, CheckCircle, AlertCircle, RefreshCw, Loader2, FileText, ArrowRight, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { downloadInvoicePDF } from '@/lib/pdf-generator';
 import { tryDownloadStripeInvoicePdf } from '@/lib/invoice-stripe-pdf-client';
@@ -1536,7 +1536,16 @@ function InvoicesManagementInner() {
                   const hasSavedCardRow = invoice.status === 'sent' && clientBillingMap[invoice.clientId]?.defaultPaymentMethodId;
                   return (
                     <tr key={invoice.id} className="hover:bg-muted/50 transition-colors">
-                      <td className="px-4 py-3 text-sm font-medium text-foreground">{invoice.invoiceNumber}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-foreground">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {invoice.invoiceNumber}
+                          {(invoice as any).editedAt && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                              <Pencil className="h-3 w-3" />Edited
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground max-w-[200px] truncate">{invoice.workOrderTitle}</td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">{invoice.clientName}</td>
                       <td className="px-4 py-3 text-sm">
@@ -1597,7 +1606,14 @@ function InvoicesManagementInner() {
                   {/* Top row: invoice number + status */}
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{invoice.invoiceNumber}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground">{invoice.invoiceNumber}</p>
+                        {(invoice as any).editedAt && (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                            <Pencil className="h-3 w-3" />Edited
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{invoice.workOrderTitle}</p>
                     </div>
                     <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(invoice.status)}`}>
