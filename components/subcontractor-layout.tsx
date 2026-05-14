@@ -12,7 +12,7 @@ import { getStorage } from 'firebase/storage';
 import Logo from '@/components/ui/logo';
 import NotificationBell from '@/components/notification-bell';
 import ProfileMenu from '@/components/profile-menu';
-import { Home, ClipboardList, FileText, CheckSquare, ClipboardCheck, MessageSquare, Menu, X, Headphones } from 'lucide-react';
+import { Home, ClipboardList, FileText, CheckSquare, ClipboardCheck, MessageSquare, Menu, X, Headphones, Receipt, Stethoscope } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
 import ViewControls from '@/components/view-controls';
 import ImpersonationBanner from '@/components/impersonation-banner';
@@ -379,6 +379,8 @@ export default function SubcontractorLayout({ children }: { children: React.Reac
     { name: 'Dashboard', href: '/subcontractor-portal', icon: Home, badgeKey: null },
     { name: 'Bidding Work Orders', href: '/subcontractor-portal/bidding', icon: ClipboardList, badgeKey: 'bidding' },
     { name: 'My Quotes', href: '/subcontractor-portal/quotes', icon: FileText, badgeKey: 'quotes' },
+    { name: 'My Invoices', href: '/subcontractor-portal/invoices', icon: Receipt, badgeKey: null },
+    { name: 'My Diagnostic Requests', href: '/subcontractor-portal/diagnostic-requests', icon: Stethoscope, badgeKey: null },
     { name: 'Assigned Jobs', href: '/subcontractor-portal/assigned', icon: CheckSquare, badgeKey: 'assigned' },
     { name: 'My Completed Jobs', href: '/subcontractor-portal/completed-jobs', icon: ClipboardCheck, badgeKey: 'completedJobs' },
     { name: 'Messages', href: '/subcontractor-portal/messages', icon: MessageSquare, badgeKey: 'messages' },

@@ -2482,13 +2482,19 @@ export default function SubcontractorBidding() {
                 {bidding.images && bidding.images.length > 0 && (
                   <div className="flex gap-2 overflow-x-auto">
                     {bidding.images.map((image, idx) => (
-                      <img
+                      <button
                         key={idx}
-                        src={image}
-                        alt={`Work order ${idx + 1}`}
-                        className="h-12 w-12 object-cover rounded-lg flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                        type="button"
+                        className="shrink-0 rounded-lg overflow-hidden border border-border hover:border-primary/40 transition-colors cursor-pointer"
                         onClick={() => { setLightboxImages(bidding.images!); setLightboxIndex(idx); }}
-                      />
+                        aria-label={`View image ${idx + 1}`}
+                      >
+                        <img
+                          src={image}
+                          alt={`Work order ${idx + 1}`}
+                          className="h-14 w-14 object-cover"
+                        />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -2555,7 +2561,7 @@ export default function SubcontractorBidding() {
                     <div className="flex items-start gap-2">
                       <FileText className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
                       <div>
-                        <strong>Quote submitted.</strong> Awaiting admin review.
+                        <strong>Quote submitted.</strong> Request Pending.
                         {(bidding as any).quoteEditedAt && (
                           <span className="ml-2 inline-flex items-center gap-1 text-emerald-700 italic">
                             <Pencil className="h-3 w-3" />Edited

@@ -132,12 +132,17 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isAdmin();
     }
 
-    // Invoices - admins full access; clients read their own; clients may
-    // approve / dispute their own pending_approval invoices (defense in
-    // depth — the canonical write path is /api/invoices/{approve,dispute}
-    // which uses the admin sync account and also fires emails + admin notifications).
+    // Invoices - admins full access; clients read their own; subcontractors
+    // read their own (to populate My Invoices page); clients may approve /
+    // dispute their own pending_approval invoices (defense in depth — the
+    // canonical write path is /api/invoices/{approve,dispute} which uses the
+    // admin sync account and also fires emails + admin notifications).
     match /invoices/{invoiceId} {
-      allow read: if isSignedIn() && (isAdmin() || resource.data.clientId == request.auth.uid);
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.clientId == request.auth.uid ||
+        resource.data.subcontractorId == request.auth.uid
+      );
       allow create: if isSignedIn() && isAdmin();
       allow delete: if isSignedIn() && isAdmin();
       allow update: if isSignedIn() && (
@@ -416,6 +421,12 @@ service cloud.firestore {
 
     match /subcontractorMessagingPermissions/{subId} {
       allow read, write: if isSignedIn() && isAdmin();
+    }
+
+    // Edit submission permissions - admins write; subcontractors read their own
+    match /subcontractorEditPermissions/{subId} {
+      allow read: if isSignedIn() && (isAdmin() || subId == request.auth.uid);
+      allow write: if isSignedIn() && isAdmin();
     }
 
     // Payment Logs - admin-only audit trail of every Stripe payment event

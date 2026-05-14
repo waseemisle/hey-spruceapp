@@ -1,10 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  collection, query, where, onSnapshot, orderBy, limit,
-  getDoc, getDocs, doc, updateDoc, serverTimestamp,
-} from 'firebase/firestore';
+import { collection, query, where, onSnapshot, limit, getDoc, doc } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
@@ -13,64 +10,75 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  FileText, Calendar, DollarSign, CheckCircle, XCircle,
-  Clock, Search, Pencil, Plus, Trash2, X,
+  Receipt, Calendar, DollarSign, CheckCircle, XCircle,
+  Clock, Search, Pencil, Plus, Trash2, X, AlertCircle, FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PortalListPage } from '@/components/ui/portal-list-page';
 import { EmptyState } from '@/components/ui/empty-state';
 
-const SERVICE_TIME_SLOTS = [
-  '12:00 AM - 2:00 AM', '2:00 AM - 4:00 AM', '4:00 AM - 6:00 AM',
-  '6:00 AM - 8:00 AM', '8:00 AM - 10:00 AM', '10:00 AM - 12:00 PM',
-  '12:00 PM - 2:00 PM', '2:00 PM - 4:00 PM', '4:00 PM - 6:00 PM',
-  '6:00 PM - 8:00 PM', '8:00 PM - 10:00 PM', '10:00 PM - 12:00 AM',
-];
-
-interface QuoteLineItem {
+interface EditLineItem {
   description: string;
   quantity: number;
   unitPrice: number;
   amount: number;
 }
 
-interface Quote {
+interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}
+
+interface Invoice {
   id: string;
-  workOrderId: string;
+  workOrderId?: string;
   workOrderNumber?: string;
-  workOrderTitle: string;
-  clientName: string;
-  laborCost: number;
-  materialCost: number;
+  workOrderTitle?: string;
+  clientName?: string;
+  lineItems?: InvoiceLineItem[];
   totalAmount: number;
-  lineItems: QuoteLineItem[];
   notes?: string;
-  proposedServiceDate?: any;
-  proposedServiceTime?: string;
   status: string;
   createdAt: any;
   editedAt?: any;
-  forwardedToClient: boolean;
-  acceptedAt?: any;
-  rejectedAt?: any;
-  rejectionReason?: string;
+  biddingWorkOrderId?: string;
+  subcontractorId?: string;
 }
 
-export default function SubcontractorQuotes() {
+function getStatusInfo(status: string) {
+  switch (status) {
+    case 'paid':
+      return { style: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Paid' };
+    case 'sent':
+      return { style: 'bg-blue-100 text-blue-800', icon: FileText, text: 'Sent to Client' };
+    case 'pending_approval':
+      return { style: 'bg-amber-100 text-amber-800', icon: Clock, text: 'Pending Approval' };
+    case 'overdue':
+      return { style: 'bg-red-100 text-red-800', icon: AlertCircle, text: 'Overdue' };
+    case 'disputed':
+      return { style: 'bg-red-100 text-red-800', icon: XCircle, text: 'Disputed' };
+    case 'draft':
+      return { style: 'bg-gray-100 text-gray-700', icon: FileText, text: 'Draft' };
+    default:
+      return { style: 'bg-gray-100 text-gray-700', icon: Clock, text: 'Pending' };
+  }
+}
+
+export default function SubcontractorInvoices() {
   const { auth, db } = useFirebaseInstance();
-  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('all');
+  const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [canEditQuote, setCanEditQuote] = useState(false);
+  const [canEditInvoice, setCanEditInvoice] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Edit form state
-  const [editingQuote, setEditingQuote] = useState<Quote | null>(null);
-  const [editLineItems, setEditLineItems] = useState<QuoteLineItem[]>([]);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [editLineItems, setEditLineItems] = useState<EditLineItem[]>([]);
   const [editNotes, setEditNotes] = useState('');
-  const [editServiceDate, setEditServiceDate] = useState('');
-  const [editServiceTime, setEditServiceTime] = useState('');
   const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
@@ -80,152 +88,147 @@ export default function SubcontractorQuotes() {
 
         getDoc(doc(db, 'subcontractorEditPermissions', user.uid))
           .then(snap => {
-            if (snap.exists()) setCanEditQuote(snap.data().canEditQuote ?? false);
+            if (snap.exists()) setCanEditInvoice(snap.data().canEditInvoice ?? false);
           })
           .catch(err => console.error('Failed to load edit permissions:', err));
 
-        const quotesQuery = query(
-          collection(db, 'quotes'),
+        const q = query(
+          collection(db, 'invoices'),
           where('subcontractorId', '==', user.uid),
-          orderBy('createdAt', 'desc'),
           limit(200),
         );
 
-        const unsubscribeSnapshot = onSnapshot(quotesQuery, (snapshot) => {
-          const quotesData = snapshot.docs.map(d => ({
-            id: d.id,
-            ...d.data(),
-          })) as Quote[];
-          setQuotes(quotesData);
+        const unsub = onSnapshot(q, snap => {
+          const data = snap.docs
+            .map(d => ({ id: d.id, ...d.data() } as Invoice))
+            .sort((a, b) => {
+              const aMs = a.createdAt?.toMillis?.() ?? 0;
+              const bMs = b.createdAt?.toMillis?.() ?? 0;
+              return bMs - aMs;
+            });
+          setInvoices(data);
           setLoading(false);
-        }, (error) => {
-          console.error('Quotes listener error:', error);
+        }, err => {
+          console.error('Invoices listener error:', err);
           setLoading(false);
         });
 
-        return () => unsubscribeSnapshot();
+        return () => unsub();
       } else {
         setLoading(false);
       }
     });
-
     return () => unsubscribeAuth();
   }, [auth, db]);
 
-  const openEditForm = (quote: Quote) => {
-    setEditingQuote(quote);
+  const openEditForm = (invoice: Invoice) => {
+    setEditingInvoice(invoice);
     setEditLineItems(
-      quote.lineItems?.length
-        ? quote.lineItems.map(li => ({ ...li }))
+      invoice.lineItems?.length
+        ? invoice.lineItems.map(li => ({
+            description: li.description,
+            quantity: li.quantity,
+            unitPrice: li.rate ?? 0,
+            amount: li.amount,
+          }))
         : [{ description: 'Labor', quantity: 1, unitPrice: 0, amount: 0 }]
     );
-    setEditNotes(quote.notes || '');
-    const dateObj = quote.proposedServiceDate?.toDate?.() ||
-      (quote.proposedServiceDate ? new Date(quote.proposedServiceDate) : null);
-    setEditServiceDate(dateObj ? dateObj.toLocaleDateString('en-CA') : '');
-    setEditServiceTime(quote.proposedServiceTime || '');
+    setEditNotes(invoice.notes || '');
   };
 
   const editTotal = editLineItems.reduce((s, li) => s + (Number(li.amount) || 0), 0);
 
-  const updateLineItem = (idx: number, field: keyof QuoteLineItem, value: string | number) => {
+  const updateLineItem = (idx: number, field: 'description' | 'quantity' | 'unitPrice', value: string | number) => {
     setEditLineItems(prev => prev.map((li, i) => {
       if (i !== idx) return li;
-      const updated = { ...li, [field]: value };
+      const u = { ...li, [field]: value };
       if (field === 'quantity' || field === 'unitPrice') {
-        updated.amount = Number(updated.quantity) * Number(updated.unitPrice);
+        u.amount = Number(u.quantity) * Number(u.unitPrice);
       }
-      return updated;
+      return u;
     }));
   };
 
   const handleSaveEdit = async () => {
-    if (!editingQuote || !currentUserId) return;
+    if (!editingInvoice || !currentUserId) return;
     const validItems = editLineItems.filter(li => li.description.trim() && Number(li.amount) > 0);
     if (!validItems.length) { toast.error('Add at least one line item'); return; }
     if (editTotal <= 0) { toast.error('Total must be greater than $0'); return; }
-    if (!editServiceDate) { toast.error('Select a proposed service date'); return; }
-    if (!editServiceTime) { toast.error('Select a proposed service time'); return; }
+    if (!editingInvoice.biddingWorkOrderId || !editingInvoice.workOrderId) {
+      toast.error('Cannot edit: missing work order reference');
+      return;
+    }
 
     setEditSaving(true);
     try {
-      await updateDoc(doc(db, 'quotes', editingQuote.id), {
-        lineItems: validItems,
-        notes: editNotes,
-        proposedServiceDate: new Date(editServiceDate),
-        proposedServiceTime: editServiceTime,
-        totalAmount: editTotal,
-        editedAt: serverTimestamp(),
-        editedBy: currentUserId,
-        updatedAt: serverTimestamp(),
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/work-orders/bidding-direct-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          biddingWorkOrderId: editingInvoice.biddingWorkOrderId,
+          workOrderId: editingInvoice.workOrderId,
+          lineItems: validItems.map(li => ({
+            description: li.description,
+            quantity: li.quantity,
+            rate: li.unitPrice,
+            amount: li.amount,
+          })),
+          notes: editNotes,
+          totalAmount: editTotal,
+          existingInvoiceId: editingInvoice.id,
+        }),
       });
 
-      // Stamp the associated biddingWorkOrders doc (best-effort, look up by quoteId)
-      try {
-        const biddingSnap = await getDocs(
-          query(collection(db, 'biddingWorkOrders'), where('quoteId', '==', editingQuote.id))
-        );
-        if (!biddingSnap.empty) {
-          await updateDoc(biddingSnap.docs[0].ref, {
-            quoteEditedAt: serverTimestamp(),
-            quoteEditedBy: currentUserId,
-            updatedAt: serverTimestamp(),
-          });
-        }
-      } catch (err) {
-        console.error('Failed to stamp biddingWorkOrder on quote edit:', err);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as any).error || 'Update failed');
       }
 
-      toast.success('Quote updated successfully!');
-      setEditingQuote(null);
-    } catch (err) {
-      console.error('Failed to save quote edit:', err);
-      toast.error('Failed to update quote');
+      toast.success('Invoice updated successfully!');
+      setEditingInvoice(null);
+    } catch (err: any) {
+      console.error('Failed to save invoice edit:', err);
+      toast.error(err.message || 'Failed to update invoice');
     } finally {
       setEditSaving(false);
     }
   };
 
-  const getStatusBadge = (quote: Quote) => {
-    if (quote.status === 'accepted') {
-      return { style: 'bg-green-100 text-green-800', icon: CheckCircle, text: 'Approved' };
-    }
-    if (quote.status === 'rejected') {
-      return { style: 'bg-red-100 text-red-800', icon: XCircle, text: 'Rejected' };
-    }
-    if (quote.forwardedToClient) {
-      return { style: 'bg-blue-100 text-blue-800', icon: Clock, text: 'Awaiting Client' };
-    }
-    return { style: 'bg-amber-100 text-amber-800', icon: Clock, text: 'Request Pending' };
-  };
-
-  const filteredQuotes = quotes.filter(quote => {
+  const filtered = invoices.filter(inv => {
     let statusMatch = true;
-    if (filter === 'pending') statusMatch = quote.status === 'pending' && !quote.forwardedToClient;
-    else if (filter === 'review') statusMatch = quote.status === 'pending' && quote.forwardedToClient;
-    else if (filter === 'accepted') statusMatch = quote.status === 'accepted';
-    else if (filter === 'rejected') statusMatch = quote.status === 'rejected';
+    if (filter === 'pending') statusMatch = !['paid', 'sent', 'disputed'].includes(inv.status);
+    else if (filter === 'sent') statusMatch = inv.status === 'sent';
+    else if (filter === 'paid') statusMatch = inv.status === 'paid';
+    else if (filter === 'disputed') statusMatch = inv.status === 'disputed';
 
-    const searchLower = searchQuery.toLowerCase();
+    const sl = searchQuery.toLowerCase();
     const searchMatch = !searchQuery ||
-      quote.workOrderTitle?.toLowerCase().includes(searchLower) ||
-      quote.clientName?.toLowerCase().includes(searchLower) ||
-      (quote.notes && quote.notes.toLowerCase().includes(searchLower));
+      inv.workOrderTitle?.toLowerCase().includes(sl) ||
+      inv.clientName?.toLowerCase().includes(sl) ||
+      inv.workOrderNumber?.toLowerCase().includes(sl);
 
     return statusMatch && searchMatch;
   });
 
   const filterOptions = [
-    { value: 'all', label: 'All', count: quotes.length },
-    { value: 'pending', label: 'Request Pending', count: quotes.filter(q => q.status === 'pending' && !q.forwardedToClient).length },
-    { value: 'review', label: 'Awaiting Client', count: quotes.filter(q => q.status === 'pending' && q.forwardedToClient).length },
-    { value: 'accepted', label: 'Approved', count: quotes.filter(q => q.status === 'accepted').length },
-    { value: 'rejected', label: 'Rejected', count: quotes.filter(q => q.status === 'rejected').length },
+    { value: 'all', label: 'All', count: invoices.length },
+    { value: 'pending', label: 'Pending', count: invoices.filter(i => !['paid', 'sent', 'disputed'].includes(i.status)).length },
+    { value: 'sent', label: 'Sent', count: invoices.filter(i => i.status === 'sent').length },
+    { value: 'paid', label: 'Paid', count: invoices.filter(i => i.status === 'paid').length },
+    { value: 'disputed', label: 'Disputed', count: invoices.filter(i => i.status === 'disputed').length },
   ];
 
   if (loading) {
     return (
-      <PortalListPage title="My Quotes" subtitle="Track your submitted quotes and their status" icon={FileText}>
+      <PortalListPage
+        title="My Invoices"
+        subtitle="Track your submitted invoices and their payment status"
+        icon={Receipt}
+      >
         <div className="flex h-64 items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
@@ -235,13 +238,17 @@ export default function SubcontractorQuotes() {
 
   return (
     <>
-      <PortalListPage title="My Quotes" subtitle="Track your submitted quotes and their status" icon={FileText}>
+      <PortalListPage
+        title="My Invoices"
+        subtitle="Track your submitted invoices and their payment status"
+        icon={Receipt}
+      >
         <div className="space-y-6">
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by title or client…"
+              placeholder="Search by title, client, or WO number…"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -256,7 +263,7 @@ export default function SubcontractorQuotes() {
                 onClick={() => setFilter(opt.value)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   filter === opt.value
-                    ? 'bg-emerald-600 text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : 'bg-card text-foreground border border-border hover:bg-muted'
                 }`}
               >
@@ -266,112 +273,108 @@ export default function SubcontractorQuotes() {
           </div>
 
           {/* Cards */}
-          {filteredQuotes.length === 0 ? (
+          {filtered.length === 0 ? (
             <EmptyState
-              icon={FileText}
-              title="No quotes found"
-              subtitle={filter === 'all' ? 'Start submitting quotes for available work orders' : 'Try a different filter'}
+              icon={Receipt}
+              title="No invoices found"
+              subtitle={
+                filter === 'all'
+                  ? 'Invoices you submit from the Bidding page will appear here'
+                  : 'Try a different filter'
+              }
             />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredQuotes.map(quote => {
-                const statusInfo = getStatusBadge(quote);
-                const StatusIcon = statusInfo.icon;
-                const isEditable = canEditQuote && quote.status === 'pending';
+              {filtered.map(invoice => {
+                const si = getStatusInfo(invoice.status);
+                const SIcon = si.icon;
+                const canEdit = canEditInvoice && !['paid', 'sent'].includes(invoice.status);
 
                 return (
                   <div
-                    key={quote.id}
+                    key={invoice.id}
                     className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3 hover:shadow-md transition-shadow"
                   >
-                    {/* Title + status badge */}
+                    {/* Title + badge */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-foreground text-sm truncate">{quote.workOrderTitle}</p>
-                        {quote.workOrderNumber && (
-                          <p className="text-xs text-muted-foreground">WO: {quote.workOrderNumber}</p>
+                        <p className="font-semibold text-foreground text-sm truncate">
+                          {invoice.workOrderTitle || 'Invoice'}
+                        </p>
+                        {invoice.workOrderNumber && (
+                          <p className="text-xs text-muted-foreground">WO: {invoice.workOrderNumber}</p>
                         )}
-                        {quote.editedAt && (
+                        {invoice.editedAt && (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic mt-0.5">
                             <Pencil className="h-3 w-3" /> Edited
                           </span>
                         )}
                       </div>
-                      <span className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${statusInfo.style}`}>
-                        <StatusIcon className="h-3 w-3" />
-                        {statusInfo.text}
+                      <span className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${si.style}`}>
+                        <SIcon className="h-3 w-3" />
+                        {si.text}
                       </span>
                     </div>
 
                     {/* Meta */}
                     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                      <span className="truncate">Client: {quote.clientName}</span>
+                      {invoice.clientName && (
+                        <span className="truncate">Client: {invoice.clientName}</span>
+                      )}
                       <span className="flex items-center gap-1">
-                        <DollarSign className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                        <span className="font-semibold text-foreground">{formatMoney(quote.totalAmount)}</span>
+                        <DollarSign className="h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span className="font-semibold text-foreground">{formatMoney(invoice.totalAmount)}</span>
                         <span className="text-muted-foreground">total</span>
                       </span>
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3.5 w-3.5 shrink-0" />
-                        Submitted {quote.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                        Submitted {invoice.createdAt?.toDate?.().toLocaleDateString() || 'N/A'}
                       </span>
-                      {quote.proposedServiceDate && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                          Proposed: {quote.proposedServiceDate?.toDate?.().toLocaleDateString() || 'N/A'}
-                          {quote.proposedServiceTime ? ` · ${quote.proposedServiceTime}` : ''}
-                        </span>
-                      )}
                     </div>
 
                     {/* Line items breakdown */}
-                    {quote.lineItems?.length > 0 && (
+                    {invoice.lineItems && invoice.lineItems.length > 0 && (
                       <div className="rounded-lg bg-muted/40 p-2.5 space-y-1">
-                        {quote.lineItems.map((li, i) => (
+                        {invoice.lineItems.map((li, i) => (
                           <div key={i} className="flex justify-between text-xs">
-                            <span className="text-muted-foreground truncate pr-2">{li.description}</span>
+                            <span className="text-muted-foreground truncate pr-2">
+                              {li.description}{li.quantity > 1 ? ` × ${li.quantity}` : ''}
+                            </span>
                             <span className="font-medium text-foreground shrink-0">{formatMoney(li.amount)}</span>
                           </div>
                         ))}
                         <div className="border-t border-border pt-1 mt-1 flex justify-between text-xs font-semibold">
                           <span>Total</span>
-                          <span>{formatMoney(quote.totalAmount)}</span>
+                          <span>{formatMoney(invoice.totalAmount)}</span>
                         </div>
                       </div>
                     )}
 
-                    {quote.forwardedToClient && (
-                      <div className="rounded-md bg-primary/10 px-3 py-2 text-xs text-foreground">
-                        Sent to client for approval
-                      </div>
+                    {invoice.notes && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">{invoice.notes}</p>
                     )}
 
-                    {quote.status === 'rejected' && quote.rejectionReason && (
-                      <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">
-                        <span className="font-semibold">Rejected: </span>{quote.rejectionReason}
-                      </div>
-                    )}
-
-                    {quote.status === 'accepted' && quote.acceptedAt && (
+                    {invoice.status === 'paid' && (
                       <div className="rounded-md bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-800 flex items-center gap-1">
-                        <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-600" />
-                        Approved on {quote.acceptedAt?.toDate?.().toLocaleDateString() || 'N/A'}
+                        <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-600" /> Payment received
                       </div>
                     )}
 
-                    {quote.notes && (
-                      <p className="text-xs text-muted-foreground line-clamp-2">{quote.notes}</p>
+                    {invoice.status === 'disputed' && (
+                      <div className="rounded-md bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700 flex items-center gap-1">
+                        <XCircle className="h-3.5 w-3.5 shrink-0 text-red-600" /> Invoice disputed by client
+                      </div>
                     )}
 
-                    {isEditable && (
+                    {canEdit && (
                       <div className="border-t border-border pt-2 mt-auto">
                         <Button
                           size="sm"
                           variant="outline"
                           className="w-full gap-1.5 text-xs"
-                          onClick={() => openEditForm(quote)}
+                          onClick={() => openEditForm(invoice)}
                         >
-                          <Pencil className="h-3.5 w-3.5" /> Edit Quote
+                          <Pencil className="h-3.5 w-3.5" /> Edit Invoice
                         </Button>
                       </div>
                     )}
@@ -383,19 +386,21 @@ export default function SubcontractorQuotes() {
         </div>
       </PortalListPage>
 
-      {/* ── Edit Quote modal ── */}
-      {editingQuote && (
+      {/* ── Edit Invoice modal ── */}
+      {editingInvoice && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-4">
           <div className="bg-background rounded-2xl border border-border shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
-                <h2 className="font-semibold text-base">Edit Quote</h2>
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{editingQuote.workOrderTitle}</p>
+                <h2 className="font-semibold text-base">Edit Invoice</h2>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {editingInvoice.workOrderTitle}
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => setEditingQuote(null)}
+                onClick={() => setEditingInvoice(null)}
                 className="rounded-lg p-2 hover:bg-muted transition-colors"
               >
                 <X className="h-4 w-4" />
@@ -421,7 +426,6 @@ export default function SubcontractorQuotes() {
                   </Button>
                 </div>
 
-                {/* Column headers */}
                 <div className="grid grid-cols-12 gap-2 text-xs text-muted-foreground font-medium px-0.5">
                   <span className="col-span-5">Description</span>
                   <span className="col-span-2 text-center">Qty</span>
@@ -478,37 +482,9 @@ export default function SubcontractorQuotes() {
                   </div>
                 ))}
 
-                {/* Total row */}
                 <div className="flex justify-between items-center rounded-lg bg-muted/50 px-3 py-2 text-sm font-semibold">
                   <span>Total</span>
                   <span>{formatMoney(editTotal)}</span>
-                </div>
-              </div>
-
-              {/* Proposed date + time */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Proposed Date</Label>
-                  <Input
-                    type="date"
-                    value={editServiceDate}
-                    onChange={e => setEditServiceDate(e.target.value)}
-                    className="h-9 text-sm"
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-sm">Proposed Time</Label>
-                  <select
-                    value={editServiceTime}
-                    onChange={e => setEditServiceTime(e.target.value)}
-                    className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">Select time…</option>
-                    {SERVICE_TIME_SLOTS.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
                 </div>
               </div>
 
@@ -530,13 +506,13 @@ export default function SubcontractorQuotes() {
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => setEditingQuote(null)}
+                onClick={() => setEditingInvoice(null)}
                 disabled={editSaving}
               >
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="flex-1"
                 onClick={handleSaveEdit}
                 disabled={editSaving}
               >
