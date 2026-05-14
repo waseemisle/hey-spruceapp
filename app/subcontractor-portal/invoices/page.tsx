@@ -86,9 +86,9 @@ export default function SubcontractorInvoices() {
       if (user) {
         setCurrentUserId(user.uid);
 
-        getDoc(doc(db, 'subcontractorEditPermissions', user.uid))
+        getDoc(doc(db, 'subcontractors', user.uid))
           .then(snap => {
-            if (snap.exists()) setCanEditInvoice(snap.data().canEditInvoice ?? false);
+            if (snap.exists()) setCanEditInvoice(snap.data().editPermissions?.canEditInvoice ?? false);
           })
           .catch(err => console.error('Failed to load edit permissions:', err));
 

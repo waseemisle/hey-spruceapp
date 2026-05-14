@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
 import { formatMoney } from '@/lib/money';
@@ -88,9 +88,9 @@ export default function DiagnosticRequestsPage() {
       if (user) {
         setCurrentUserId(user.uid);
 
-        getDoc(doc(db, 'subcontractorEditPermissions', user.uid))
+        getDoc(doc(db, 'subcontractors', user.uid))
           .then(snap => {
-            if (snap.exists()) setCanEditDiagnostic(snap.data().canEditDiagnostic ?? false);
+            if (snap.exists()) setCanEditDiagnostic(snap.data().editPermissions?.canEditDiagnostic ?? false);
           })
           .catch(err => console.error('Failed to load edit permissions:', err));
 
@@ -157,28 +157,28 @@ export default function DiagnosticRequestsPage() {
 
     setEditReqSaving(true);
     try {
-      if (editReqItem.diagnosticQuoteId) {
-        await updateDoc(doc(db, 'quotes', editReqItem.diagnosticQuoteId), {
-          proposedServiceDate: new Date(editDate),
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/work-orders/edit-diagnostic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: 'request',
+          biddingWorkOrderId: editReqItem.id,
+          diagnosticFee: feeNum,
+          proposedServiceDate: editDate,
           proposedServiceTime: editTime,
-          updatedAt: serverTimestamp(),
-          editedAt: serverTimestamp(),
-          editedBy: currentUserId,
-        });
-      }
-
-      await updateDoc(doc(db, 'biddingWorkOrders', editReqItem.id), {
-        diagnosticFee: feeNum,
-        diagnosticEditedAt: serverTimestamp(),
-        diagnosticEditedBy: currentUserId,
-        updatedAt: serverTimestamp(),
+          diagnosticQuoteId: editReqItem.diagnosticQuoteId,
+        }),
       });
-
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update');
+      }
       toast.success('Diagnostic request updated!');
       setEditReqItem(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to update diagnostic request:', err);
-      toast.error('Failed to update diagnostic request');
+      toast.error(err?.message || 'Failed to update diagnostic request');
     } finally {
       setEditReqSaving(false);
     }
@@ -214,29 +214,27 @@ export default function DiagnosticRequestsPage() {
 
     setEditResSaving(true);
     try {
-      await updateDoc(doc(db, 'biddingWorkOrders', editResItem.id), {
-        diagnosticResults: editResults,
-        diagnosticResultsImages: editResImages,
-        diagnosticResultsEditedAt: serverTimestamp(),
-        diagnosticResultsEditedBy: currentUserId,
-        updatedAt: serverTimestamp(),
-      });
-
-      // Best-effort update on the parent work order so admins see updated results
-      try {
-        await updateDoc(doc(db, 'workOrders', editResItem.workOrderId), {
+      const token = await auth.currentUser?.getIdToken();
+      const res = await fetch('/api/work-orders/edit-diagnostic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          type: 'results',
+          biddingWorkOrderId: editResItem.id,
+          workOrderId: editResItem.workOrderId,
           diagnosticResults: editResults,
           diagnosticResultsImages: editResImages,
-          diagnosticResultsEditedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      } catch { /* best effort */ }
-
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to update');
+      }
       toast.success('Diagnostic results updated!');
       setEditResItem(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to update diagnostic results:', err);
-      toast.error('Failed to update diagnostic results');
+      toast.error(err?.message || 'Failed to update diagnostic results');
     } finally {
       setEditResSaving(false);
     }

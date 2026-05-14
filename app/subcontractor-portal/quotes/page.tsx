@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   collection, query, where, onSnapshot, orderBy, limit,
-  getDoc, getDocs, doc, updateDoc, serverTimestamp,
+  getDoc, doc, updateDoc, serverTimestamp,
 } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -159,22 +159,6 @@ export default function SubcontractorQuotes() {
         editedBy: currentUserId,
         updatedAt: serverTimestamp(),
       });
-
-      // Stamp the associated biddingWorkOrders doc (best-effort, look up by quoteId)
-      try {
-        const biddingSnap = await getDocs(
-          query(collection(db, 'biddingWorkOrders'), where('quoteId', '==', editingQuote.id))
-        );
-        if (!biddingSnap.empty) {
-          await updateDoc(biddingSnap.docs[0].ref, {
-            quoteEditedAt: serverTimestamp(),
-            quoteEditedBy: currentUserId,
-            updatedAt: serverTimestamp(),
-          });
-        }
-      } catch (err) {
-        console.error('Failed to stamp biddingWorkOrder on quote edit:', err);
-      }
 
       toast.success('Quote updated successfully!');
       setEditingQuote(null);
