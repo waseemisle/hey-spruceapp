@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface ImageLightboxProps {
@@ -11,6 +12,9 @@ interface ImageLightboxProps {
 
 export function ImageLightbox({ images, initialIndex, onClose }: ImageLightboxProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const goPrev = useCallback(() => {
     setCurrentIndex((i) => (i > 0 ? i - 1 : images.length - 1));
@@ -30,12 +34,13 @@ export function ImageLightbox({ images, initialIndex, onClose }: ImageLightboxPr
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose, goPrev, goNext]);
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80"
       onClick={onClose}
     >
-      {/* Close button */}
       <button
         onClick={onClose}
         className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors z-10"
@@ -43,14 +48,12 @@ export function ImageLightbox({ images, initialIndex, onClose }: ImageLightboxPr
         <X className="h-6 w-6" />
       </button>
 
-      {/* Counter */}
       {images.length > 1 && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
           {currentIndex + 1} / {images.length}
         </div>
       )}
 
-      {/* Previous button */}
       {images.length > 1 && (
         <button
           onClick={(e) => { e.stopPropagation(); goPrev(); }}
@@ -60,7 +63,6 @@ export function ImageLightbox({ images, initialIndex, onClose }: ImageLightboxPr
         </button>
       )}
 
-      {/* Image */}
       <img
         src={images[currentIndex]}
         alt={`Image ${currentIndex + 1}`}
@@ -68,7 +70,6 @@ export function ImageLightbox({ images, initialIndex, onClose }: ImageLightboxPr
         onClick={(e) => e.stopPropagation()}
       />
 
-      {/* Next button */}
       {images.length > 1 && (
         <button
           onClick={(e) => { e.stopPropagation(); goNext(); }}
@@ -77,6 +78,7 @@ export function ImageLightbox({ images, initialIndex, onClose }: ImageLightboxPr
           <ChevronRight className="h-8 w-8" />
         </button>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }
