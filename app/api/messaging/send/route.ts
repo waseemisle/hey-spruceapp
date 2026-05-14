@@ -17,6 +17,8 @@ import type { MessageChannel, MessageEventType, MessageStatus } from '@/lib/mess
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+/** Allow Blooio delivery polling (several seconds) without platform cutting the request short. */
+export const maxDuration = 60;
 
 function pickProviderPayload(raw: unknown): Record<string, unknown> | undefined {
   if (!raw || typeof raw !== 'object') return undefined;

@@ -5,10 +5,51 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Blooio sometimes wraps resources in `{ data: { ... } }` or `{ message: { ... } }`. */
+function unwrapBlooioEnvelope(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== 'object') return null;
+  let cur: unknown = data;
+  for (let i = 0; i < 4; i++) {
+    if (!cur || typeof cur !== 'object') return null;
+    const o = cur as Record<string, unknown>;
+    if (
+      typeof o.status === 'string' ||
+      typeof o.message_id === 'string' ||
+      typeof o.id === 'string' ||
+      typeof o.message_id === 'number' ||
+      typeof o.id === 'number'
+    ) {
+      return o;
+    }
+    if (o.message && typeof o.message === 'object') {
+      cur = o.message;
+      continue;
+    }
+    if (o.data && typeof o.data === 'object') {
+      cur = o.data;
+      continue;
+    }
+    return o;
+  }
+  return cur as Record<string, unknown>;
+}
+
+/** Message id from POST /chats/.../messages (handles `message_id`, `id`, or `message_ids[]`). */
+export function extractBlooioMessageId(data: unknown): string | undefined {
+  const o = unwrapBlooioEnvelope(data);
+  if (!o) return undefined;
+  const direct = o.message_id ?? o.id;
+  if (typeof direct === 'string' && direct.length > 0) return direct;
+  if (typeof direct === 'number' && Number.isFinite(direct)) return String(direct);
+  const ids = o.message_ids;
+  if (Array.isArray(ids) && ids.length > 0 && typeof ids[0] === 'string') return ids[0];
+  return undefined;
+}
+
 /** Map Blooio send or GET /status JSON to our log status (shared POST + poll). */
 export function mapBlooioPayloadToStatus(data: unknown): MessageStatus {
-  if (!data || typeof data !== 'object') return 'sent';
-  const o = data as Record<string, unknown>;
+  const o = unwrapBlooioEnvelope(data);
+  if (!o) return 'sent';
   const providerStatus = String(o.status ?? '').toLowerCase();
   const deliveryHint = String(
     o.delivery_status ?? o.deliveryStatus ?? o.delivery_state ?? '',
@@ -61,7 +102,9 @@ export async function fetchBlooioMessageStatus(
 
 /**
  * Poll Blooio until delivered/failed or timeout. Updates logs when POST still shows queued/sent.
- * Disable with BLOOIO_SKIP_DELIVERY_POLL=true. Tune with BLOOIO_DELIVERY_POLL_MAX_MS (default 5000).
+ * Disable with BLOOIO_SKIP_DELIVERY_POLL=true. Tune with BLOOIO_DELIVERY_POLL_MAX_MS (default 20000).
+ * Carrier-confirmed `delivered` often arrives later than a few seconds; without webhooks, longer
+ * polls improve accuracy up to the serverless limit.
  */
 export async function pollBlooioSmsUntilTerminal(
   e164: string,
@@ -70,11 +113,13 @@ export async function pollBlooioSmsUntilTerminal(
 ): Promise<{ status: MessageStatus; raw: unknown } | null> {
   if (process.env.BLOOIO_SKIP_DELIVERY_POLL === 'true') return null;
   const envMs = Number(process.env.BLOOIO_DELIVERY_POLL_MAX_MS);
-  const defaultMax = Number.isFinite(envMs) && envMs > 0 ? envMs : 5000;
+  const defaultMax = Number.isFinite(envMs) && envMs > 0 ? envMs : 20_000;
   const maxMs = opts?.maxMs ?? defaultMax;
-  const intervalMs = opts?.intervalMs ?? 400;
+  const intervalMs = opts?.intervalMs ?? 500;
   const deadline = Date.now() + maxMs;
   let last: { status: MessageStatus; raw: unknown } | null = null;
+  // Brief pause: status route can 404 until the message record exists after 202 Accepted.
+  await sleep(250);
   while (Date.now() < deadline) {
     last = await fetchBlooioMessageStatus(e164, messageId);
     if (last && (last.status === 'delivered' || last.status === 'failed')) return last;
@@ -153,13 +198,14 @@ export async function sendBlooioSms(opts: {
         return { success: false, status: 'failed', error: `Blooio ${res.status}: ${text}` };
       }
 
-      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      const data = await res.json().catch(() => ({}));
       const status = mapBlooioPayloadToStatus(data);
+      const providerMessageId = extractBlooioMessageId(data);
 
       return {
         success: status !== 'failed',
         status,
-        providerMessageId: (data.id ?? data.message_id) as string | undefined,
+        providerMessageId,
         raw: data,
       };
     } catch (err: any) {

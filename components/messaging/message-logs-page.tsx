@@ -98,7 +98,10 @@ function StatusBadge({ status }: { status: MessageStatus }) {
   }
   if (status === 'sent') {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+      <span
+        title='Blooio accepted the message and handed it to Apple or the SMS carrier. "Delivered" appears only after the carrier confirms receipt to Blooio, which can take longer than our server wait; set BLOOIO_DELIVERY_POLL_MAX_MS or Blooio webhooks for later updates.'
+        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+      >
         <CheckCircle2 className="h-3 w-3" /> Sent
       </span>
     );
