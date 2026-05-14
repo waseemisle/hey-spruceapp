@@ -78,9 +78,9 @@ export default function SubcontractorQuotes() {
       if (user) {
         setCurrentUserId(user.uid);
 
-        getDoc(doc(db, 'subcontractorEditPermissions', user.uid))
+        getDoc(doc(db, 'subcontractors', user.uid))
           .then(snap => {
-            if (snap.exists()) setCanEditQuote(snap.data().canEditQuote ?? false);
+            if (snap.exists()) setCanEditQuote(snap.data().editPermissions?.canEditQuote ?? false);
           })
           .catch(err => console.error('Failed to load edit permissions:', err));
 

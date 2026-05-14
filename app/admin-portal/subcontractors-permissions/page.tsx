@@ -268,6 +268,11 @@ export default function SubcontractorsPermissionsPage() {
         },
         { merge: true },
       );
+      await setDoc(
+        doc(db, 'subcontractors', selectedSub.id),
+        { editPermissions: editPerm, updatedAt: serverTimestamp() },
+        { merge: true },
+      );
       setEditPermDirty(false);
       toast.success(`Edit permissions saved for ${selectedSub.fullName}`);
     } catch (err: any) {
