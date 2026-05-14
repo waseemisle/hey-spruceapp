@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { formatAddress } from '@/lib/utils';
 import { uploadMultipleToCloudinary } from '@/lib/cloudinary-upload';
 
-import { PageContainer } from '@/components/ui/page-container';
+import { PortalListPage } from '@/components/ui/portal-list-page';
 interface AssignedJob {
   id: string;
   workOrderId: string;
@@ -957,30 +957,15 @@ export default function SubcontractorAssignedJobs() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
-        </div>
-      </PageContainer>
-    </>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      </div>
     );
   }
 
   return (
     <>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <ClipboardList className="h-7 w-7 text-primary" />
-              Assigned Jobs
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage your assigned work orders</p>
-          </div>
-        </div>
-
+      <PortalListPage title="Assigned Jobs" subtitle="Manage your assigned work orders" icon={ClipboardList}>
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {statsData.map((stat) => (
@@ -1050,7 +1035,7 @@ export default function SubcontractorAssignedJobs() {
               const hasRepairQuote = repairQuoteSubmittedWoIds.has(workOrder.id);
 
               return (
-                <div key={job.id} className="bg-card border border-border rounded-lg p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
+                <div key={job.id} className="bg-card border border-border rounded-xl p-4 flex flex-col gap-3 hover:shadow-md transition-shadow">
                   {/* Row 1: title + status badge */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -1678,7 +1663,7 @@ export default function SubcontractorAssignedJobs() {
             </div>
           );
         })()}
-      </div>
+      </PortalListPage>
     </>
   );
 }

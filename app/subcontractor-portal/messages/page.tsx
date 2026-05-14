@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { MessageSquare, Send, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { PageContainer } from '@/components/ui/page-container';
 interface Chat {
   id: string;
   participants: string[];
@@ -140,13 +139,9 @@ export default function SubcontractorMessages() {
 
   if (loading) {
     return (
-      <>
-      <PageContainer>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
-        </div>
-      </PageContainer>
-    </>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      </div>
     );
   }
 
@@ -185,8 +180,8 @@ export default function SubcontractorMessages() {
                       <div
                         key={chat.id}
                         onClick={() => setSelectedChat(chat.id)}
-                        className={`p-3 rounded-lg cursor-pointer hover:bg-muted ${
-                          selectedChat === chat.id ? 'bg-green-50 border-2 border-green-500' : 'bg-muted'
+                        className={`p-3 rounded-xl cursor-pointer transition-colors ${
+                          selectedChat === chat.id ? 'bg-primary/10 border border-primary/30' : 'bg-muted hover:bg-muted/80'
                         }`}
                       >
                         <div className="font-semibold text-sm">{otherParticipant?.name || 'Admin'}</div>
@@ -238,10 +233,10 @@ export default function SubcontractorMessages() {
                         }`}
                       >
                         <div
-                          className={`max-w-xs px-4 py-2 rounded-lg ${
+                          className={`max-w-xs px-4 py-2 rounded-xl ${
                             message.senderId === auth.currentUser?.uid
-                              ? 'bg-green-600 text-white'
-                              : 'bg-card text-foreground'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-card text-foreground border border-border'
                           }`}
                         >
                           <div className="text-xs opacity-75 mb-1">{message.senderName}</div>

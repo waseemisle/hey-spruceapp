@@ -19,7 +19,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { User, Mail, Phone, Briefcase, CreditCard, Lock, Camera, Save, ArrowLeft, Landmark, Building2, CheckCircle, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
-import { PageContainer } from '@/components/ui/page-container';
 export default function SubcontractorAccountSettings() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -243,7 +242,6 @@ export default function SubcontractorAccountSettings() {
 
   return (
     <>
-      <PageContainer>
       <div className="max-w-3xl mx-auto space-y-6 sm:space-y-8 pb-16 p-4 sm:p-6">
         <div className="flex items-center gap-4">
           <button onClick={() => router.back()} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
@@ -598,7 +596,6 @@ export default function SubcontractorAccountSettings() {
           </>
         )}
       </div>
-          </PageContainer>
     </>
   );
 }

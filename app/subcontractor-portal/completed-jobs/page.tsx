@@ -21,7 +21,6 @@ import {
 import { formatAddress } from '@/lib/utils';
 import type { VendorPayment } from '@/types';
 
-import { PageContainer } from '@/components/ui/page-container';
 import { PortalListPage } from '@/components/ui/portal-list-page';
 interface WorkOrder {
   id: string;
@@ -206,13 +205,9 @@ export default function SubcontractorCompletedJobs() {
 
   if (loading) {
     return (
-      <>
-        <PageContainer>
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
-          </div>
-        </PageContainer>
-      </>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary/20 border-t-primary" />
+      </div>
     );
   }
 

@@ -15,7 +15,6 @@ import { PortalListPage } from '@/components/ui/portal-list-page';
 import { ImageLightbox } from '@/components/ui/image-lightbox';
 import { formatAddress } from '@/lib/utils';
 
-import { PageContainer } from '@/components/ui/page-container';
 interface WorkOrder {
   id: string;
   workOrderNumber?: string;
@@ -157,19 +156,17 @@ export default function SubWorkOrderDetail() {
   if (!workOrder) {
     return (
       <>
-        <PageContainer>
-          <Card className="rounded-2xl border border-border shadow-sm">
-            <CardContent className="p-8 text-center">
-              <ClipboardList className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-sm text-muted-foreground">Work order not found or you no longer have access.</p>
-              <Link href="/subcontractor-portal/assigned" className="inline-block mt-4">
-                <Button variant="outline" className="h-9 rounded-xl gap-1.5">
-                  <ArrowLeft className="h-4 w-4" /> Back to Assigned Jobs
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        </PageContainer>
+        <Card className="rounded-2xl border border-border shadow-sm">
+          <CardContent className="p-8 text-center">
+            <ClipboardList className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">Work order not found or you no longer have access.</p>
+            <Link href="/subcontractor-portal/assigned" className="inline-block mt-4">
+              <Button variant="outline" className="h-9 rounded-xl gap-1.5">
+                <ArrowLeft className="h-4 w-4" /> Back to Assigned Jobs
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </>
     );
   }

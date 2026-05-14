@@ -22,7 +22,6 @@ import {
 import { supportTicketPost } from '@/lib/support-ticket-api-client';
 import { uploadToCloudinary } from '@/lib/cloudinary-upload';
 
-import { PageContainer } from '@/components/ui/page-container';
 function formatTs(v: unknown): string {
   if (v && typeof v === 'object' && 'toDate' in v && typeof (v as { toDate: () => Date }).toDate === 'function') {
     return (v as { toDate: () => Date }).toDate().toLocaleString();
@@ -216,8 +215,7 @@ export default function SubcontractorSupportTicketDetailPage() {
 
   return (
     <>
-      <PageContainer>
-        <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4">
           <Link href="/subcontractor-portal/support-tickets">
             <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
           </Link>
@@ -336,7 +334,6 @@ export default function SubcontractorSupportTicketDetailPage() {
             <p className="text-sm">{ticket.assignedToName || '—'}</p>
           </div>
         </div>
-      </PageContainer>
     </>
   );
 }
