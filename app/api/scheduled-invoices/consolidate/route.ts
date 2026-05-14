@@ -92,6 +92,7 @@ function nextWindowStart(si: any, now: Date): Date {
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const targetId: string | undefined = body?.scheduledInvoiceId;
+  const clientId: string | undefined = body?.clientId;
 
   const db = await getServerDb();
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
@@ -102,6 +103,126 @@ export async function POST(request: NextRequest) {
   const skipped: string[] = [];
   const errors: Array<{ id: string; error: string }> = [];
 
+  // ── Client-level manual consolidation ────────────────────────────────────
+  // When clientId is provided (triggered from the admin client detail page),
+  // collect all pending draft invoices for that client regardless of which
+  // scheduled invoice generated them and create one consolidated doc.
+  if (clientId && !targetId) {
+    try {
+      const { getDoc } = await import('firebase/firestore');
+      const clientSnap = await getDoc(doc(db, 'clients', clientId));
+      if (!clientSnap.exists()) {
+        return NextResponse.json({ success: false, error: 'Client not found' }, { status: 404 });
+      }
+      const clientData = clientSnap.data() as any;
+
+      const pendingSnap = await getDocs(query(
+        collection(db, 'invoices'),
+        where('clientId', '==', clientId),
+        where('consolidatedPending', '==', true),
+      ));
+      const pendingInvoices = pendingSnap.docs
+        .map(d => ({ id: d.id, ...(d.data() as any) }))
+        .filter(inv => inv.status === 'draft' || inv.status === 'sent');
+
+      if (pendingInvoices.length === 0) {
+        return NextResponse.json({
+          success: true,
+          processed: 0,
+          skipped: 0,
+          errors: [],
+          message: 'No pending invoices to consolidate for this client',
+        });
+      }
+
+      const totalAmount = pendingInvoices.reduce((s: number, inv: any) => s + Number(inv.totalAmount || 0), 0);
+      const invoiceIds = pendingInvoices.map((inv: any) => inv.id);
+      const lineItems = pendingInvoices.map((inv: any) => ({
+        description: `Invoice ${inv.invoiceNumber || inv.id} — ${fmtDate(inv.createdAt)}`,
+        amount: Number(inv.totalAmount || 0),
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoiceNumber || inv.id,
+      }));
+
+      const consolidatedInvoiceNumber = generateInvoiceNumber();
+      let chargeStatus: 'succeeded' | 'failed' | null = null;
+      let paymentIntentId: string | undefined;
+
+      const shouldAutoCharge = clientData.consolidationAutoCharge === true
+        && clientData.consolidationAutoChargePaymentMethodId;
+
+      if (shouldAutoCharge) {
+        try {
+          const chargeRes = await fetch(`${baseUrl}/api/stripe/charge-client-now`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              clientId,
+              paymentMethodId: clientData.consolidationAutoChargePaymentMethodId,
+              amount: totalAmount,
+              description: `Consolidated invoice ${consolidatedInvoiceNumber} — ${invoiceIds.length} invoice${invoiceIds.length !== 1 ? 's' : ''}`,
+            }),
+          });
+          const chargeData = await chargeRes.json().catch(() => ({}));
+          if (chargeRes.ok && chargeData?.success) {
+            chargeStatus = 'succeeded';
+            paymentIntentId = chargeData.paymentIntentId;
+          } else {
+            chargeStatus = 'failed';
+          }
+        } catch (e) {
+          chargeStatus = 'failed';
+        }
+      }
+
+      const isPaid = chargeStatus === 'succeeded';
+      const consolidatedRef = await addDoc(collection(db, 'consolidatedInvoices'), {
+        clientId,
+        clientName: clientData.companyName || clientData.fullName,
+        invoiceIds,
+        invoiceCount: invoiceIds.length,
+        totalAmount,
+        periodStart: Timestamp.fromDate(new Date(now.getTime() - 30 * 86_400_000)),
+        periodEnd: Timestamp.fromDate(now),
+        consolidationPeriod: clientData.consolidationPeriod || 'weekly',
+        status: isPaid ? 'paid' : 'draft',
+        autoCharged: isPaid,
+        autoChargeStatus: chargeStatus || null,
+        stripePaymentIntentId: paymentIntentId || null,
+        paidAt: isPaid ? serverTimestamp() : null,
+        lineItems,
+        invoiceNumber: consolidatedInvoiceNumber,
+        createdAt: serverTimestamp(),
+      });
+
+      const batch = writeBatch(db);
+      for (const inv of pendingInvoices) {
+        batch.update(doc(db, 'invoices', inv.id), {
+          ...(isPaid ? { status: 'paid', paidAt: serverTimestamp() } : {}),
+          consolidatedInvoiceId: consolidatedRef.id,
+        });
+        if (isPaid && inv.workOrderId) {
+          batch.update(doc(db, 'workOrders', inv.workOrderId), {
+            status: 'completed',
+            updatedAt: serverTimestamp(),
+          });
+        }
+      }
+      await batch.commit();
+
+      return NextResponse.json({
+        success: true,
+        processed: 1,
+        skipped: 0,
+        errors: [],
+        processedIds: [consolidatedRef.id],
+      });
+    } catch (e: any) {
+      return NextResponse.json({ success: false, error: e?.message || String(e) }, { status: 500 });
+    }
+  }
+
+  // ── Scheduled-invoice-level consolidation (existing logic) ────────────────
   // Fetch schedules to process
   let scheduleSnap;
   if (targetId) {

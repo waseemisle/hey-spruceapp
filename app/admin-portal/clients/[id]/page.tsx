@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, onSnapshot, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAdminPortalHeaderExtra } from '@/components/admin-portal-header-extra-context';
 import { Button } from '@/components/ui/button';
@@ -77,6 +77,12 @@ interface Client {
    * with no client email until an admin clicks "Approve & notify".
    */
   requireInvoiceApproval?: boolean;
+  // Invoice consolidation (per-client settings)
+  consolidationEnabled?: boolean;
+  consolidationPeriod?: 'weekly' | 'bi-weekly' | 'monthly';
+  consolidationEndDayOfWeek?: number;
+  consolidationAutoCharge?: boolean;
+  consolidationAutoChargePaymentMethodId?: string;
 }
 
 interface WorkOrder {
@@ -107,6 +113,7 @@ interface Invoice {
   autoChargeAttempted?: boolean;
   autoChargeStatus?: string;
   stripePaymentLink?: string;
+  consolidatedPending?: boolean;
 }
 
 interface Location {
@@ -290,11 +297,15 @@ export default function ClientDetailPage() {
 
   // Consolidated invoices
   const [consolidatedInvoices, setConsolidatedInvoices] = useState<ConsolidatedInvoice[]>([]);
-  const [showConsolidatedModal, setShowConsolidatedModal] = useState(false);
-  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
-  const [generatingConsolidated, setGeneratingConsolidated] = useState(false);
-  const [consolidatedChargeCardId, setConsolidatedChargeCardId] = useState('');
   const [markingConsolidatedPaid, setMarkingConsolidatedPaid] = useState<string | null>(null);
+  // Per-client invoice consolidation settings (editable)
+  const [consolidationEnabled, setConsolidationEnabled] = useState(false);
+  const [consolidationPeriod, setConsolidationPeriod] = useState<'weekly' | 'bi-weekly' | 'monthly'>('weekly');
+  const [consolidationEndDayOfWeek, setConsolidationEndDayOfWeek] = useState(5);
+  const [consolidationAutoCharge, setConsolidationAutoCharge] = useState(false);
+  const [consolidationAutoChargePaymentMethodId, setConsolidationAutoChargePaymentMethodId] = useState('');
+  const [savingConsolidation, setSavingConsolidation] = useState(false);
+  const [consolidatingNow, setConsolidatingNow] = useState(false);
 
   // Edit billing terms modal
   const [showBillingTermsModal, setShowBillingTermsModal] = useState(false);
@@ -358,7 +369,14 @@ export default function ClientDetailPage() {
     if (!id) return;
     const unsub = onSnapshot(doc(db, 'clients', id), (snap) => {
       if (snap.exists()) {
-        setClient({ uid: snap.id, ...snap.data() } as Client);
+        const data = snap.data();
+        setClient({ uid: snap.id, ...data } as Client);
+        // Sync consolidation settings from Firestore → local edit state
+        setConsolidationEnabled(data.consolidationEnabled ?? false);
+        setConsolidationPeriod(data.consolidationPeriod ?? 'weekly');
+        setConsolidationEndDayOfWeek(data.consolidationEndDayOfWeek ?? 5);
+        setConsolidationAutoCharge(data.consolidationAutoCharge ?? false);
+        setConsolidationAutoChargePaymentMethodId(data.consolidationAutoChargePaymentMethodId ?? '');
       }
       setLoading(false);
     });
@@ -864,7 +882,7 @@ export default function ClientDetailPage() {
     }
   };
 
-  // ─── Consolidated Invoice Actions ─────────────────────────────────────────
+  // ─── Invoice Consolidation ─────────────────────────────────────────────────
 
   // Permission gate — only show consolidation UI when the client's company
   // has invoiceConsolidationEnabled === true.
@@ -874,175 +892,71 @@ export default function ClientDetailPage() {
     return comp?.invoiceConsolidationEnabled === true;
   })();
 
-  // IDs already used in existing consolidated invoices
-  const alreadyConsolidatedIds = new Set(consolidatedInvoices.flatMap((ci) => ci.invoiceIds));
-
-  // Invoices eligible for consolidation: sent or overdue, not already consolidated
-  const eligibleInvoices = invoices.filter(
-    (inv) => (inv.status === 'sent' || inv.status === 'overdue') && !alreadyConsolidatedIds.has(inv.id)
+  // Invoices currently accumulated for consolidation (drafts with consolidatedPending flag)
+  const pendingConsolidationInvoices = invoices.filter(
+    inv => inv.consolidatedPending === true && inv.status === 'draft'
   );
+  const pendingTotal = pendingConsolidationInvoices.reduce((s, inv) => s + (inv.totalAmount ?? 0), 0);
 
-  const consolidatedTotal = selectedInvoiceIds.reduce((sum, iid) => {
-    const inv = invoices.find((i) => i.id === iid);
-    return sum + (inv?.totalAmount ?? 0);
-  }, 0);
-
-  const handleOpenConsolidatedModal = () => {
-    setSelectedInvoiceIds(eligibleInvoices.map((i) => i.id));
-    setConsolidatedChargeCardId(client?.defaultPaymentMethodId || '');
-    setShowConsolidatedModal(true);
-  };
-
-  const handleGenerateConsolidated = async () => {
-    if (!client || selectedInvoiceIds.length === 0) return;
-    setGeneratingConsolidated(true);
+  const handleSaveConsolidation = async () => {
+    if (!client) return;
+    setSavingConsolidation(true);
     try {
-      const now = new Date();
-      const periodStart = new Date(now.getTime() - (client.paymentTermsDays || 30) * 24 * 60 * 60 * 1000);
-
-      let chargeStatus: string | undefined;
-      let paymentIntentId: string | undefined;
-
-      // If a card is selected, charge first
-      if (consolidatedChargeCardId) {
-        const chargeRes = await fetch('/api/stripe/charge-client-now', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clientId: client.uid,
-            paymentMethodId: consolidatedChargeCardId,
-            amount: consolidatedTotal,
-            description: `Consolidated invoice — ${selectedInvoiceIds.length} invoice${selectedInvoiceIds.length !== 1 ? 's' : ''}`,
-          }),
-        });
-        const chargeData = await chargeRes.json();
-        if (!chargeRes.ok || !chargeData.success) {
-          throw new Error(chargeData.error || chargeData.message || 'Charge failed');
-        }
-        chargeStatus = 'succeeded';
-        paymentIntentId = chargeData.paymentIntentId;
-      }
-
-      const isPaid = !!consolidatedChargeCardId && chargeStatus === 'succeeded';
-
-      // Create consolidated invoice document
-      const docRef = await addDoc(collection(db, 'consolidatedInvoices'), {
-        clientId: client.uid,
-        clientName: client.companyName || client.fullName,
-        invoiceIds: selectedInvoiceIds,
-        invoiceCount: selectedInvoiceIds.length,
-        totalAmount: consolidatedTotal,
-        periodStart,
-        periodEnd: now,
-        status: isPaid ? 'paid' : 'draft',
-        autoCharged: isPaid,
-        autoChargeStatus: chargeStatus || null,
-        stripePaymentIntentId: paymentIntentId || null,
-        paidAt: isPaid ? serverTimestamp() : null,
-        createdAt: serverTimestamp(),
+      await updateDoc(doc(db, 'clients', client.uid), {
+        consolidationEnabled,
+        consolidationPeriod,
+        consolidationEndDayOfWeek,
+        consolidationAutoCharge,
+        consolidationAutoChargePaymentMethodId: consolidationAutoCharge ? consolidationAutoChargePaymentMethodId : '',
+        updatedAt: serverTimestamp(),
       });
-
-      // If charged, mark all individual invoices + linked work orders as paid
-      if (isPaid) {
-        const batch = writeBatch(db);
-        for (const invId of selectedInvoiceIds) {
-          const inv = invoices.find((i) => i.id === invId);
-          batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
-          if (inv?.workOrderId) {
-            batch.update(doc(db, 'workOrders', inv.workOrderId), {
-              status: 'completed',
-              updatedAt: serverTimestamp(),
-            });
-          }
-        }
-        await batch.commit();
-      }
-
-      toast.success(
-        isPaid
-          ? `${fmtMoney(consolidatedTotal)} charged and ${selectedInvoiceIds.length} invoice${selectedInvoiceIds.length !== 1 ? 's' : ''} marked as paid`
-          : `Consolidated invoice for ${fmtMoney(consolidatedTotal)} created as draft`
-      );
-      setShowConsolidatedModal(false);
-      setSelectedInvoiceIds([]);
-      setConsolidatedChargeCardId('');
+      toast.success('Consolidation settings saved');
     } catch (err: any) {
-      toast.error(err.message || 'Failed to generate consolidated invoice');
+      toast.error(err.message || 'Failed to save consolidation settings');
     } finally {
-      setGeneratingConsolidated(false);
+      setSavingConsolidation(false);
     }
   };
 
-  const handleChargeAndMarkPaid = async (ci: ConsolidatedInvoice) => {
-    if (!client || !consolidatedChargeCardId) {
-      toast.error('Select a card to charge');
-      return;
-    }
-    setMarkingConsolidatedPaid(ci.id);
+  const handleConsolidateNow = async () => {
+    if (!client) return;
+    if (!confirm('Consolidate all accumulated pending invoices for this client now?')) return;
+    setConsolidatingNow(true);
     try {
-      // Charge via Stripe
-      const chargeRes = await fetch('/api/stripe/charge-client-now', {
+      const res = await fetch('/api/scheduled-invoices/consolidate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientId: client.uid,
-          paymentMethodId: consolidatedChargeCardId,
-          amount: ci.totalAmount,
-          description: `Consolidated invoice — ${ci.invoiceCount} invoice${ci.invoiceCount !== 1 ? 's' : ''}`,
-        }),
+        body: JSON.stringify({ clientId: client.uid }),
       });
-      const chargeData = await chargeRes.json();
-      if (!chargeRes.ok || !chargeData.success) {
-        throw new Error(chargeData.error || chargeData.message || 'Charge failed');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Consolidation failed');
+      if (data.processed > 0) {
+        toast.success('Consolidated invoice created');
+      } else {
+        toast.info(data.message || 'No pending invoices to consolidate');
       }
-
-      // Batch: mark consolidated invoice as paid + mark each individual invoice + work orders as paid
-      const batch = writeBatch(db);
-      batch.update(doc(db, 'consolidatedInvoices', ci.id), {
-        status: 'paid',
-        autoCharged: true,
-        autoChargeStatus: 'succeeded',
-        stripePaymentIntentId: chargeData.paymentIntentId,
-        paidAt: serverTimestamp(),
-      });
-      for (const invId of ci.invoiceIds) {
-        const inv = invoices.find((i) => i.id === invId);
-        batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
-        if (inv?.workOrderId) {
-          batch.update(doc(db, 'workOrders', inv.workOrderId), {
-            status: 'completed',
-            updatedAt: serverTimestamp(),
-          });
-        }
-      }
-      await batch.commit();
-
-      toast.success(`${fmtMoney(ci.totalAmount)} charged and ${ci.invoiceCount} invoice${ci.invoiceCount !== 1 ? 's' : ''} marked as paid`);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to charge consolidated invoice');
+      toast.error(err.message || 'Failed to consolidate invoices');
     } finally {
-      setMarkingConsolidatedPaid(null);
+      setConsolidatingNow(false);
     }
   };
 
-  const handleMarkConsolidatedPaidManual = async (ci: ConsolidatedInvoice) => {
-    if (!confirm(`Mark this consolidated invoice (${fmtMoney(ci.totalAmount)}) and all ${ci.invoiceCount} invoices as paid?`)) return;
+  const handleMarkConsolidatedPaid = async (ci: ConsolidatedInvoice) => {
+    if (!confirm(`Mark this consolidated invoice (${fmtMoney(ci.totalAmount)}) and all ${ci.invoiceCount} linked invoices as paid?`)) return;
     setMarkingConsolidatedPaid(ci.id);
     try {
       const batch = writeBatch(db);
       batch.update(doc(db, 'consolidatedInvoices', ci.id), { status: 'paid', paidAt: serverTimestamp() });
       for (const invId of ci.invoiceIds) {
-        const inv = invoices.find((i) => i.id === invId);
+        const inv = invoices.find(i => i.id === invId);
         batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
         if (inv?.workOrderId) {
-          batch.update(doc(db, 'workOrders', inv.workOrderId), {
-            status: 'completed',
-            updatedAt: serverTimestamp(),
-          });
+          batch.update(doc(db, 'workOrders', inv.workOrderId), { status: 'completed', updatedAt: serverTimestamp() });
         }
       }
       await batch.commit();
-      toast.success(`Consolidated invoice marked as paid`);
+      toast.success('Consolidated invoice marked as paid');
     } catch (err: any) {
       toast.error(err.message || 'Failed to mark as paid');
     } finally {
@@ -1731,55 +1645,6 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
-            {/* ── Consolidated Billing Terms ── (only shown when company has invoiceConsolidationEnabled) */}
-            {companyInvoiceConsolidationEnabled && (
-            <div className="rounded-lg border border-border overflow-hidden">
-              <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Consolidated Billing Terms (Primary)
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground" onClick={handleOpenBillingTermsModal}>
-                    <Edit2 className="h-3 w-3" />
-                    Edit
-                  </Button>
-                </div>
-              </div>
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                <BillingRow
-                  label="Payment Terms"
-                  value={client.paymentTermsDays ? `Net ${client.paymentTermsDays} (every ${client.paymentTermsDays} days)` : 'Not set'}
-                  highlight={client.paymentTermsDays ? 'blue' : undefined}
-                />
-                <BillingRow
-                  label="Auto-Charge Threshold"
-                  value={client.autoChargeThreshold ? fmtMoney(client.autoChargeThreshold) : 'Not set'}
-                  highlight={client.autoChargeThreshold ? 'green' : undefined}
-                />
-                <BillingRow
-                  label="Eligible Invoices"
-                  value={`${eligibleInvoices.length} invoice${eligibleInvoices.length !== 1 ? 's' : ''} pending consolidation`}
-                />
-                <BillingRow
-                  label="Consolidated Invoices"
-                  value={`${consolidatedInvoices.length} generated`}
-                />
-              </div>
-              {eligibleInvoices.length > 0 && (
-                <div className="px-4 pb-4">
-                  <Button
-                    size="sm"
-                    onClick={handleOpenConsolidatedModal}
-                    className="gap-1.5 text-xs bg-purple-600 hover:bg-purple-700"
-                  >
-                    <Layers className="h-3.5 w-3.5" />
-                    Generate Consolidated Invoice ({eligibleInvoices.length})
-                  </Button>
-                </div>
-              )}
-            </div>
-            )}
-
           </div>
         </div>
 
@@ -1893,259 +1758,229 @@ export default function ClientDetailPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
-            CONSOLIDATED INVOICES — only shown when company has permission
+            INVOICE CONSOLIDATION — only shown when company has permission
         ══════════════════════════════════════════════════════════════════════ */}
-        {companyInvoiceConsolidationEnabled && consolidatedInvoices.length > 0 && (
+        {companyInvoiceConsolidationEnabled && (
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-foreground text-base flex items-center gap-2">
-                <Layers className="h-4 w-4 text-purple-600" />
-                Consolidated Invoices
-                <span className="ml-1 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold px-1.5">
-                  {consolidatedInvoices.length}
-                </span>
+                <Layers className="h-4 w-4 text-indigo-600" />
+                Invoice Consolidation
               </h3>
-              {eligibleInvoices.length > 0 && (
-                <Button size="sm" variant="outline" onClick={handleOpenConsolidatedModal} className="gap-1.5 text-xs text-purple-700 border-purple-200 hover:border-purple-400">
-                  <Plus className="h-3.5 w-3.5" />
-                  Generate New
-                </Button>
-              )}
+              <Button
+                size="sm"
+                onClick={handleConsolidateNow}
+                disabled={consolidatingNow || pendingConsolidationInvoices.length === 0}
+                className="gap-1.5 text-xs bg-indigo-600 hover:bg-indigo-700"
+              >
+                {consolidatingNow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+                {consolidatingNow ? 'Consolidating…' : `Consolidate Now${pendingConsolidationInvoices.length > 0 ? ` (${pendingConsolidationInvoices.length})` : ''}`}
+              </Button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[720px]">
-                <thead>
-                  <tr className="border-b border-border bg-muted">
-                    {['Period', 'Invoices', 'Total Amount', 'Status', 'Created', 'Actions'].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {consolidatedInvoices.map((ci) => (
-                    <tr key={ci.id} className="hover:bg-muted/50">
-                      <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {fmtDate(ci.periodStart)} – {fmtDate(ci.periodEnd)}
-                      </td>
-                      <td className="px-4 py-3.5 text-foreground">
-                        <span className="inline-flex items-center gap-1 text-xs font-medium">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                          {ci.invoiceCount} invoice{ci.invoiceCount !== 1 ? 's' : ''}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5 font-semibold text-foreground whitespace-nowrap">
-                        {fmtMoney(ci.totalAmount)}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {ci.status === 'paid' ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
-                            <CheckCircle className="h-3 w-3" />Paid
-                          </span>
-                        ) : ci.status === 'sent' ? (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/15 text-primary">
-                            <Mail className="h-3 w-3" />Sent
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            <FileText className="h-3 w-3" />Draft
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
-                        {fmtDate(ci.createdAt)}
-                      </td>
-                      <td className="px-4 py-3.5">
-                        {ci.status !== 'paid' && (
-                          <div className="flex items-center gap-2">
-                            {displayMethods.length > 0 && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={markingConsolidatedPaid === ci.id}
-                                onClick={() => {
-                                  setConsolidatedChargeCardId(client.defaultPaymentMethodId || displayMethods[0]?.id || '');
-                                  handleChargeAndMarkPaid(ci);
-                                }}
-                                className="h-7 text-xs gap-1 text-emerald-700 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50"
-                              >
-                                {markingConsolidatedPaid === ci.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
-                                Charge &amp; Mark Paid
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={markingConsolidatedPaid === ci.id}
-                              onClick={() => handleMarkConsolidatedPaidManual(ci)}
-                              className="h-7 text-xs gap-1 text-primary border-primary/20 hover:border-primary/40"
-                            >
-                              {markingConsolidatedPaid === ci.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
-                              Mark Paid
-                            </Button>
-                          </div>
-                        )}
-                        {ci.status === 'paid' && ci.paidAt && (
-                          <span className="text-xs text-muted-foreground">Paid {fmtDate(ci.paidAt)}</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            GENERATE CONSOLIDATED INVOICE MODAL
-        ══════════════════════════════════════════════════════════════════════ */}
-        {showConsolidatedModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-4">
-            <div className="my-auto flex w-full max-w-lg max-h-[min(92dvh,92vh)] flex-col overflow-hidden rounded-xl bg-card shadow-xl">
-              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border p-4 sm:p-6">
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">Generate Consolidated Invoice</h2>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {client.paymentTermsDays ? `Net ${client.paymentTermsDays} billing cycle` : 'Select invoices to consolidate'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => { setShowConsolidatedModal(false); setSelectedInvoiceIds([]); }}
-                  className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+            <div className="p-5 space-y-6">
+              {/* ── Settings sub-card ─────────────────────────────── */}
+              <div className="rounded-lg border border-border p-4 space-y-4">
+                <h4 className="text-sm font-semibold text-foreground">Consolidation Settings</h4>
 
-              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-              {/* Invoice selection */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                    Eligible Invoices ({eligibleInvoices.length})
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      className="text-xs text-primary hover:underline"
-                      onClick={() => setSelectedInvoiceIds(eligibleInvoices.map((i) => i.id))}
-                    >
-                      Select all
-                    </button>
-                    <span className="text-muted-foreground">·</span>
-                    <button
-                      className="text-xs text-muted-foreground hover:underline"
-                      onClick={() => setSelectedInvoiceIds([])}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-                <div className="border border-border rounded-lg divide-y divide-border">
-                  {eligibleInvoices.length === 0 ? (
-                    <p className="text-sm text-muted-foreground italic p-4 text-center">No eligible invoices</p>
-                  ) : (
-                    eligibleInvoices.map((inv) => (
-                      <label key={inv.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={selectedInvoiceIds.includes(inv.id)}
-                          onChange={(e) => {
-                            setSelectedInvoiceIds((prev) =>
-                              e.target.checked ? [...prev, inv.id] : prev.filter((x) => x !== inv.id)
-                            );
-                          }}
-                          className="h-4 w-4 text-purple-600 rounded border-input"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground">{inv.invoiceNumber || inv.id.slice(0, 8).toUpperCase()}</p>
-                          <p className="text-xs text-muted-foreground">{fmtDate(inv.createdAt)}</p>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-sm font-semibold text-foreground">{fmtMoney(inv.totalAmount)}</p>
-                          <span className={`text-xs ${inv.status === 'overdue' ? 'text-red-600' : 'text-primary'}`}>
-                            {inv.status === 'overdue' ? 'Overdue' : 'Sent'}
-                          </span>
-                        </div>
-                      </label>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Card selector for auto-charge */}
-              {displayMethods.length > 0 && (
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground block mb-1 uppercase tracking-wide">
-                    Auto-Charge Card (optional)
-                  </label>
-                  <SearchableSelect
-                    className="w-full"
-                    value={consolidatedChargeCardId}
-                    onValueChange={setConsolidatedChargeCardId}
-                    options={[
-                      { value: '', label: 'No auto-charge — generate draft only' },
-                      ...displayMethods.map((pm) => ({
-                        value: pm.id,
-                        label: `${pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• ${pm.last4}${pm.isDefault ? ' (Default)' : ''} — Exp ${String(pm.expMonth).padStart(2, '0')}/${pm.expYear}`,
-                      })),
-                    ]}
-                    placeholder="Select card"
-                    aria-label="Card for auto-charge"
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={consolidationEnabled}
+                    onChange={e => setConsolidationEnabled(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-primary"
                   />
-                  {client.autoChargeThreshold && consolidatedTotal >= client.autoChargeThreshold && (
-                    <p className="text-xs text-emerald-700 mt-1 flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Total {fmtMoney(consolidatedTotal)} meets the {fmtMoney(client.autoChargeThreshold)} auto-charge threshold
+                  <div>
+                    <p className="text-sm font-medium">Enable automatic invoice consolidation for this client</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      When enabled, daily invoices accumulate as drafts and are merged into one consolidated invoice at the end of each period.
                     </p>
-                  )}
-                  {client.autoChargeThreshold && consolidatedTotal < client.autoChargeThreshold && (
-                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      Total {fmtMoney(consolidatedTotal)} is below the {fmtMoney(client.autoChargeThreshold)} auto-charge threshold
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Summary */}
-              {selectedInvoiceIds.length > 0 && (
-                <div className="rounded-lg bg-purple-50 border border-purple-200 px-4 py-3 text-sm text-purple-800">
-                  <div className="flex justify-between">
-                    <span>{selectedInvoiceIds.length} invoice{selectedInvoiceIds.length !== 1 ? 's' : ''} selected</span>
-                    <strong>{fmtMoney(consolidatedTotal)}</strong>
                   </div>
-                  {consolidatedChargeCardId && (
-                    <p className="text-xs mt-1 text-purple-700">
-                      Will charge {fmtMoney(consolidatedTotal)} and mark all as paid
-                    </p>
-                  )}
+                </label>
+
+                {consolidationEnabled && (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground block mb-2">Consolidation Period</label>
+                      <div className="flex gap-2 flex-wrap">
+                        {(['weekly', 'bi-weekly', 'monthly'] as const).map(p => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setConsolidationPeriod(p)}
+                            className={`px-3 py-1.5 text-sm rounded-md border font-medium transition-colors ${
+                              consolidationPeriod === p
+                                ? 'bg-primary text-white border-primary'
+                                : 'border-border hover:bg-muted text-foreground'
+                            }`}
+                          >
+                            {p === 'weekly' ? 'Weekly' : p === 'bi-weekly' ? 'Bi-Weekly' : 'Monthly'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {(consolidationPeriod === 'weekly' || consolidationPeriod === 'bi-weekly') && (
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground block mb-2">Consolidation Day</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, idx) => (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => setConsolidationEndDayOfWeek(idx)}
+                              className={`w-12 h-9 text-sm rounded-md border font-medium transition-colors ${
+                                consolidationEndDayOfWeek === idx
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'border-border hover:bg-muted text-foreground'
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={consolidationAutoCharge}
+                        onChange={e => setConsolidationAutoCharge(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-primary"
+                      />
+                      <div>
+                        <p className="text-sm font-medium">Auto-charge the consolidated invoice when generated</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Automatically charges the client's saved payment method and marks all linked invoices as paid.
+                        </p>
+                      </div>
+                    </label>
+
+                    {consolidationAutoCharge && displayMethods.length > 0 && (
+                      <div className="ml-7">
+                        <label className="text-xs font-semibold text-muted-foreground block mb-1">Payment Method</label>
+                        <select
+                          value={consolidationAutoChargePaymentMethodId}
+                          onChange={e => setConsolidationAutoChargePaymentMethodId(e.target.value)}
+                          className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        >
+                          <option value="">Select payment method…</option>
+                          {displayMethods.map(pm => (
+                            <option key={pm.id} value={pm.id}>
+                              {pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1)} •••• {pm.last4}
+                              {pm.isDefault ? ' (Default)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {consolidationAutoCharge && displayMethods.length === 0 && (
+                      <p className="ml-7 text-xs text-amber-600">Add a payment method to enable auto-charge.</p>
+                    )}
+                  </>
+                )}
+
+                <div className="flex justify-end pt-1">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveConsolidation}
+                    disabled={savingConsolidation}
+                    className="gap-1.5 text-xs"
+                  >
+                    {savingConsolidation ? <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />Saving…</> : 'Save Settings'}
+                  </Button>
                 </div>
-              )}
               </div>
 
-              <div className="flex shrink-0 gap-2 border-t border-border bg-card p-4 sm:p-6">
-                <Button
-                  variant="outline"
-                  onClick={() => { setShowConsolidatedModal(false); setSelectedInvoiceIds([]); }}
-                  className="flex-1"
-                  disabled={generatingConsolidated}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleGenerateConsolidated}
-                  disabled={generatingConsolidated || selectedInvoiceIds.length === 0}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700"
-                >
-                  {generatingConsolidated ? (
-                    <><Loader2 className="h-4 w-4 animate-spin mr-1" />Generating…</>
-                  ) : consolidatedChargeCardId ? (
-                    <><Zap className="h-4 w-4 mr-1" />Charge &amp; Generate</>
-                  ) : (
-                    <><FileText className="h-4 w-4 mr-1" />Generate Invoice</>
-                  )}
-                </Button>
+              {/* ── Current window status ─────────────────────────── */}
+              <div className="rounded-lg border border-border p-4">
+                <h4 className="text-sm font-semibold text-foreground mb-3">Current Window</h4>
+                {pendingConsolidationInvoices.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No invoices accumulated yet in the current window.</p>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-6 mb-3 text-sm">
+                      <span className="text-muted-foreground">
+                        {pendingConsolidationInvoices.length} invoice{pendingConsolidationInvoices.length !== 1 ? 's' : ''} accumulated
+                      </span>
+                      <span className="font-semibold text-foreground">{fmtMoney(pendingTotal)} total</span>
+                    </div>
+                    <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+                      {pendingConsolidationInvoices.map(inv => (
+                        <div key={inv.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                          <span className="font-medium text-foreground">{inv.invoiceNumber || inv.id.slice(0,8).toUpperCase()}</span>
+                          <span className="text-xs text-muted-foreground">{fmtDate(inv.createdAt)}</span>
+                          <span className="font-semibold text-foreground">{fmtMoney(inv.totalAmount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
+
+              {/* ── Consolidated invoice history ──────────────────── */}
+              {consolidatedInvoices.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground mb-3">
+                    History
+                    <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold px-1.5">
+                      {consolidatedInvoices.length}
+                    </span>
+                  </h4>
+                  <div className="overflow-x-auto rounded-lg border border-border">
+                    <table className="w-full text-sm min-w-[600px]">
+                      <thead>
+                        <tr className="border-b border-border bg-muted">
+                          {['Period', 'Invoices', 'Total', 'Status', 'Auto-Charged', 'Date', ''].map(h => (
+                            <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {consolidatedInvoices.map(ci => (
+                          <tr key={ci.id} className="hover:bg-muted/50">
+                            <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                              {fmtDate(ci.periodStart)} – {fmtDate(ci.periodEnd)}
+                            </td>
+                            <td className="px-4 py-3 text-foreground text-xs">{ci.invoiceCount}</td>
+                            <td className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">{fmtMoney(ci.totalAmount)}</td>
+                            <td className="px-4 py-3">
+                              {ci.status === 'paid' ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                  <CheckCircle className="h-3 w-3" />Paid
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                  <FileText className="h-3 w-3" />Pending
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">{ci.autoCharged ? 'Yes' : 'No'}</td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(ci.createdAt)}</td>
+                            <td className="px-4 py-3">
+                              {ci.status !== 'paid' ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={markingConsolidatedPaid === ci.id}
+                                  onClick={() => handleMarkConsolidatedPaid(ci)}
+                                  className="h-7 text-xs gap-1 text-primary border-primary/20 hover:border-primary/40"
+                                >
+                                  {markingConsolidatedPaid === ci.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle className="h-3 w-3" />}
+                                  Mark Paid
+                                </Button>
+                              ) : (
+                                ci.paidAt && <span className="text-xs text-muted-foreground">Paid {fmtDate(ci.paidAt)}</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

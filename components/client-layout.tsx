@@ -395,6 +395,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const menuItems = [
     { name: 'Dashboard', href: '/client-portal', icon: Home, badgeKey: null },
+    { name: 'Company Information', href: '/client-portal/company-information', icon: Building2, badgeKey: null },
     { name: 'Locations', href: '/client-portal/locations', icon: Building2, badgeKey: 'locations' },
     { name: 'Work Orders', href: '/client-portal/work-orders', icon: ClipboardList, badgeKey: 'workOrders' },
     { name: 'Recurring Work Orders', href: '/client-portal/recurring-work-orders', icon: RotateCcw, badgeKey: 'recurringWorkOrders' },
