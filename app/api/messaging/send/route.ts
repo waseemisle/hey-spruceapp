@@ -9,6 +9,7 @@ import {
   quoteApprovedText,
   testMessageText,
   mapEventToTemplate,
+  appendSmsOptOutFooter,
 } from '@/lib/messaging/templates';
 import { normalizeToE164 } from '@/lib/messaging/phone';
 import { getBaseUrl } from '@/lib/base-url';
@@ -16,6 +17,20 @@ import type { MessageChannel, MessageEventType, MessageStatus } from '@/lib/mess
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+function pickProviderPayload(raw: unknown): Record<string, unknown> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const o = raw as Record<string, unknown>;
+  const keys = [
+    'status', 'state', 'delivery_status', 'deliveryStatus', 'error', 'message', 'code',
+    'id', 'message_id', 'reason', 'failure_reason',
+  ];
+  const out: Record<string, unknown> = {};
+  for (const k of keys) {
+    if (o[k] !== undefined && o[k] !== null && o[k] !== '') out[k] = o[k];
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 
 interface SendResult {
   channel: MessageChannel;
@@ -124,7 +139,8 @@ export async function POST(request: Request) {
             results.push({ channel, status: 'failed', error: 'Invalid phone number' });
             continue;
           }
-          const r = await sendBlooioSms({ to: e164, text: msgBody, idempotencyKey: ikey });
+          const smsText = appendSmsOptOutFooter(msgBody);
+          const r = await sendBlooioSms({ to: e164, text: smsText, idempotencyKey: ikey });
           await logMessage({
             channel: 'sms',
             provider: 'blooio',
@@ -132,9 +148,10 @@ export async function POST(request: Request) {
             to: e164,
             toName: fromAdmin,
             recipientRole: 'admin',
-            body: msgBody,
+            body: smsText,
             status: r.status,
             providerMessageId: r.providerMessageId,
+            providerPayload: pickProviderPayload(r.raw),
             context: { fromAdmin, testPhone: phone },
             error: r.error,
             idempotencyKey: ikey,
@@ -226,7 +243,8 @@ export async function POST(request: Request) {
       const ikey = buildIdempotencyKey(type, channel, context, subcontractorId);
 
       if (channel === 'sms') {
-        const r = await sendBlooioSms({ to: phone, text: msgBody, idempotencyKey: ikey });
+        const smsText = appendSmsOptOutFooter(msgBody);
+        const r = await sendBlooioSms({ to: phone, text: smsText, idempotencyKey: ikey });
         await logMessage({
           channel: 'sms',
           provider: 'blooio',
@@ -235,9 +253,10 @@ export async function POST(request: Request) {
           toName,
           recipientRole: 'subcontractor',
           recipientId: subcontractorId,
-          body: msgBody,
+          body: smsText,
           status: r.status,
           providerMessageId: r.providerMessageId,
+          providerPayload: pickProviderPayload(r.raw),
           context: enrichedCtx,
           error: r.error,
           idempotencyKey: ikey,

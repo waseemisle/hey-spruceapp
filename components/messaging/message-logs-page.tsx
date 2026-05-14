@@ -49,6 +49,7 @@ interface MessageLog {
   body: string;
   status: MessageStatus;
   providerMessageId?: string;
+  providerPayload?: Record<string, unknown>;
   context: Record<string, any>;
   error?: string;
   idempotencyKey?: string;
@@ -465,6 +466,13 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
                       {selected.providerMessageId && <DetailRow label="Provider Message ID" value={selected.providerMessageId} mono />}
                       {selected.idempotencyKey && <DetailRow label="Idempotency Key" value={selected.idempotencyKey} mono />}
                       {selected.error && <DetailRow label="Error" value={selected.error} error />}
+                      {selected.providerPayload && Object.keys(selected.providerPayload).length > 0 && (
+                        <DetailRow
+                          label="Provider status"
+                          value={JSON.stringify(selected.providerPayload, null, 2)}
+                          mono
+                        />
+                      )}
                     </div>
                   </div>
 

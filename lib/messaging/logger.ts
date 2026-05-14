@@ -13,6 +13,8 @@ export interface MessageLogEntry {
   body: string;
   status: MessageStatus;
   providerMessageId?: string;
+  /** Compact Blooio/Meta response fields for delivery debugging (optional). */
+  providerPayload?: Record<string, unknown>;
   context: Record<string, any>;
   error?: string;
   idempotencyKey?: string;

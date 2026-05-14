@@ -1,6 +1,14 @@
 import type { MessageChannel, MessageEventType } from './types';
 import type { WaTemplateParam } from './meta-whatsapp';
 
+/** TCPA-style opt-out line for US A2P / short-code SMS; improves carrier acceptance. */
+export function appendSmsOptOutFooter(body: string): string {
+  const t = body.trim();
+  if (!t) return body;
+  if (/reply\s+stop/i.test(t)) return body;
+  return `${t}\n\nReply STOP to opt out.`;
+}
+
 export function subcontractorApprovalText(o: {
   toName: string;
   businessName?: string;
