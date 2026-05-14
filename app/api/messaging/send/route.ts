@@ -152,7 +152,10 @@ export async function POST(request: Request) {
 
     // ── TEST MODE ──────────────────────────────────────────────────────────
     if (type === 'test') {
-      const phone = testPhone || '+923212134142';
+      if (!testPhone) {
+        return NextResponse.json({ success: false, error: 'Missing testPhone' }, { status: 400 });
+      }
+      const phone = testPhone;
       const e164 = normalizeToE164(phone);
       const fromAdmin = testFromAdmin || 'Admin';
 
@@ -269,12 +272,12 @@ export async function POST(request: Request) {
       const phone = resolved.resolvedPhone!;
       const toName = resolved.subName || context.toName || '';
 
-      // Build message body
-      const enrichedCtx = {
-        ...context,
-        toName,
-        portalUrl: type === 'bidding-opportunity' ? biddingUrl : portalUrl,
-      };
+      // WhatsApp templates use enrichedCtx.portalUrl for their body params.
+      // SMS buildBody ignores it (URLs stripped for carrier filtering), so we keep
+      // portalUrl out of the SMS log context to avoid showing a URL that wasn't sent.
+      const resolvedPortalUrl = type === 'bidding-opportunity' ? biddingUrl : portalUrl;
+      const enrichedCtx = { ...context, toName, portalUrl: resolvedPortalUrl };
+      const smsLogCtx = { ...context, toName }; // no portalUrl — SMS body has no URL
       const msgBody = buildBody(type, enrichedCtx, channel);
       const ikey = buildIdempotencyKey(type, channel, context, subcontractorId);
 
@@ -293,7 +296,7 @@ export async function POST(request: Request) {
           status: r.status,
           providerMessageId: r.providerMessageId,
           providerPayload: pickBlooioSmsLogPayload(r.raw),
-          context: enrichedCtx,
+          context: smsLogCtx,
           error: r.error,
           idempotencyKey: ikey,
         });
@@ -340,7 +343,10 @@ export async function POST(request: Request) {
     }
   } catch (err: any) {
     console.error('[/api/messaging/send] unhandled error:', err?.message);
-    results.push({ channel: 'sms', status: 'failed', error: err?.message || 'Internal error' });
+    // Only add an error result if nothing was recorded yet so the caller sees the failure
+    if (results.length === 0) {
+      results.push({ channel: 'sms', status: 'failed', error: err?.message || 'Internal error' });
+    }
   }
 
   return NextResponse.json({ success: true, results });

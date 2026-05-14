@@ -83,7 +83,7 @@ export async function fetchBlooioMessageStatus(
 ): Promise<{ status: MessageStatus; raw: unknown } | null> {
   const apiKey = process.env.BLOOIO_API_KEY;
   const baseUrl = process.env.BLOOIO_BASE_URL || 'https://backend.blooio.com/v2/api';
-  if (!apiKey || !messageId) return null;
+  if (!apiKey || !messageId || !e164) return null;
   const chatId = encodeURIComponent(e164);
   const mid = encodeURIComponent(messageId);
   const url = `${baseUrl}/chats/${chatId}/messages/${mid}/status`;
