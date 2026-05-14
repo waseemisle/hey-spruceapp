@@ -570,7 +570,7 @@ export default function SubcontractorsPermissionsPage() {
               <div className="space-y-2">
                 {testResults.map((r, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30 text-sm">
-                    {r.status === 'sent' || r.status === 'queued' ? (
+                    {r.status === 'sent' || r.status === 'queued' || r.status === 'delivered' ? (
                       <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                     ) : (
                       <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
@@ -757,7 +757,7 @@ export default function SubcontractorsPermissionsPage() {
                       <div className="space-y-2 mt-2">
                         {subTestResults.map((r, i) => (
                           <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30 text-sm">
-                            {r.status === 'sent' || r.status === 'queued' ? (
+                            {r.status === 'sent' || r.status === 'queued' || r.status === 'delivered' ? (
                               <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                             ) : (
                               <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />

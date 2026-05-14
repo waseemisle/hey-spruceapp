@@ -11,7 +11,7 @@ export type MessageEventType =
 
 export type MessageRecipientRole = 'subcontractor' | 'client' | 'admin' | 'unknown';
 
-export type MessageStatus = 'sent' | 'queued' | 'failed' | 'skipped';
+export type MessageStatus = 'sent' | 'delivered' | 'queued' | 'failed' | 'skipped';
 
 export type MessageProvider = 'blooio' | 'meta-whatsapp';
 

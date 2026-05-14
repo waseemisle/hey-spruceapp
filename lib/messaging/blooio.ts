@@ -55,11 +55,25 @@ export async function sendBlooioSms(opts: {
 
       const data = await res.json().catch(() => ({}));
 
-      const providerStatus: string = String(data?.status || '').toLowerCase();
+      const providerStatus = String(data?.status ?? '').toLowerCase();
+      const deliveryHint = String(
+        (data as Record<string, unknown>)?.delivery_status ??
+          (data as Record<string, unknown>)?.deliveryStatus ??
+          (data as Record<string, unknown>)?.delivery_state ??
+          '',
+      ).toLowerCase();
+
+      const isDelivered =
+        providerStatus === 'delivered' ||
+        deliveryHint === 'delivered' ||
+        deliveryHint === 'delivery_success';
+
       let status: SendChannelResult['status'];
       if (providerStatus === 'failed' || providerStatus === 'error') {
         status = 'failed';
-      } else if (providerStatus === 'sent' || providerStatus === 'delivered') {
+      } else if (isDelivered) {
+        status = 'delivered';
+      } else if (providerStatus === 'sent') {
         status = 'sent';
       } else if (
         providerStatus === 'queued' ||
@@ -67,12 +81,9 @@ export async function sendBlooioSms(opts: {
         providerStatus === 'processing' ||
         providerStatus === 'submitted'
       ) {
-        // Blooio uses "queued" (and similar) for messages that were accepted on
-        // this POST and are handed off for immediate dispatch — not a GroundOps
-        // delay or batch job. Map to "sent" so SMS logs match operator expectation.
+        // Accepted for dispatch — not waiting on GroundOps.
         status = 'sent';
       } else {
-        // 2xx with any other / empty status — still accepted for dispatch
         status = 'sent';
       }
 

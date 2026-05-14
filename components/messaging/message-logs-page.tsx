@@ -89,6 +89,13 @@ function formatDate(ts: Timestamp | null): string {
 }
 
 function StatusBadge({ status }: { status: MessageStatus }) {
+  if (status === 'delivered') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+        <CheckCircle2 className="h-3 w-3" /> Delivered
+      </span>
+    );
+  }
   if (status === 'sent') {
     return (
       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
@@ -287,6 +294,7 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
               onValueChange={setStatusFilter}
               options={[
                 { value: 'all', label: 'All Status' },
+                { value: 'delivered', label: 'Delivered' },
                 { value: 'sent', label: 'Sent' },
                 { value: 'queued', label: 'Queued' },
                 { value: 'skipped', label: 'Skipped' },
