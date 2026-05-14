@@ -759,6 +759,10 @@ function ClientWorkOrdersContent() {
 
     try {
       const workOrderNumber = wo.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
+      const shareBatchId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `b-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       const subAuthIds = subs.map((subId) => {
         const sub = subcontractors.find((s) => s.id === subId);
         return sub ? subcontractorAuthId(sub) : subId;
@@ -830,7 +834,7 @@ function ClientWorkOrdersContent() {
         }
         fetch('/api/messaging/send', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
-          body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subcontractorAuthId(sub), context: { workOrderId: wo.id, workOrderNumber, workOrderTitle: wo.title, locationName: wo.locationName, category: wo.category, priority: wo.priority } }),
+          body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subcontractorAuthId(sub), context: { workOrderId: wo.id, workOrderNumber, workOrderTitle: wo.title, locationName: wo.locationName, category: wo.category, priority: wo.priority, shareBatchId } }),
         }).catch(console.error);
       });
 

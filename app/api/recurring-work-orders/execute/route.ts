@@ -345,7 +345,15 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify({
               type: 'bidding-opportunity',
               subcontractorId: preAssignedSubAuthId,
-              context: { workOrderId: standardWorkOrderRef.id, workOrderNumber: standardWorkOrderNumber, workOrderTitle: standardWorkOrderData.title, locationName: standardWorkOrderData.locationName, category: standardWorkOrderData.category, priority: standardWorkOrderData.priority },
+              context: {
+                workOrderId: standardWorkOrderRef.id,
+                workOrderNumber: standardWorkOrderNumber,
+                workOrderTitle: standardWorkOrderData.title,
+                locationName: standardWorkOrderData.locationName,
+                category: standardWorkOrderData.category,
+                priority: standardWorkOrderData.priority,
+                shareNonce: `rw-exec-${recurringWorkOrderId}-${standardWorkOrderRef.id}-${Date.now()}`,
+              },
             }),
           }).catch(err => console.error('Messaging send failed (cron execution, non-fatal):', err));
         }

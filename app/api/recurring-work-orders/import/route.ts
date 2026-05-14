@@ -44,7 +44,15 @@ function sendBiddingOpportunityEmail(params: {
       body: JSON.stringify({
         type: 'bidding-opportunity',
         subcontractorId: params.subcontractorId,
-        context: { workOrderId: params.workOrderId, workOrderNumber: params.workOrderNumber, workOrderTitle: params.workOrderTitle, locationName: params.locationName, category: params.category, priority: params.priority },
+        context: {
+          workOrderId: params.workOrderId,
+          workOrderNumber: params.workOrderNumber,
+          workOrderTitle: params.workOrderTitle,
+          locationName: params.locationName,
+          category: params.category,
+          priority: params.priority,
+          shareNonce: `rw-import-${params.workOrderId || 'wo'}-${params.subcontractorId || 'sub'}-${Date.now()}`,
+        },
       }),
     }).catch((err) =>
       console.error('Failed to send bidding opportunity messaging (CSV import):', err),

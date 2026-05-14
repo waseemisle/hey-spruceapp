@@ -25,7 +25,7 @@ function pickProviderPayload(raw: unknown): Record<string, unknown> | undefined 
   const o = raw as Record<string, unknown>;
   const keys = [
     'status', 'state', 'delivery_status', 'deliveryStatus', 'error', 'message', 'code',
-    'id', 'message_id', 'reason', 'failure_reason',
+    'id', 'message_id', 'reason', 'failure_reason', 'blooioHttpStatus', 'blooioIdempotentReplay',
   ];
   const out: Record<string, unknown> = {};
   for (const k of keys) {
@@ -68,8 +68,15 @@ function buildIdempotencyKey(
   switch (type) {
     case 'subcontractor-approval':
       return `subapr-${subcontractorId}-${channel}`;
-    case 'bidding-opportunity':
-      return `bidop-${ctx.workOrderId || ctx.workOrderNumber}-${subcontractorId}-${channel}`;
+    case 'bidding-opportunity': {
+      const wo = String(ctx.workOrderId || ctx.workOrderNumber || 'wo');
+      const batch = ctx.shareBatchId ?? ctx.clientSendNonce ?? ctx.shareNonce;
+      if (batch != null && String(batch).length > 0) {
+        return `bidop-${wo}-${subcontractorId}-${channel}-${String(batch)}`;
+      }
+      // Server-only callers (no batch): unique per request so Blooio does not suppress SMS for 24h.
+      return `bidop-${wo}-${subcontractorId}-${channel}-srv-${Date.now()}`;
+    }
     case 'quote-approved':
       return `quoteapr-${ctx.quoteId}-${subcontractorId}-${channel}`;
     default:
@@ -175,7 +182,13 @@ export async function POST(request: Request) {
             error: r.error,
             idempotencyKey: ikey,
           });
-          results.push({ channel, status: r.status, providerMessageId: r.providerMessageId, error: r.error });
+          results.push({
+            channel,
+            status: r.status,
+            providerMessageId: r.providerMessageId,
+            error: r.error,
+            skipReason: r.skipReason,
+          });
         } else {
           if (!process.env.META_WHATSAPP_ACCESS_TOKEN || !process.env.META_WHATSAPP_PHONE_NUMBER_ID) {
             results.push({ channel, status: 'skipped', skipReason: 'provider-not-configured' });
@@ -280,7 +293,13 @@ export async function POST(request: Request) {
           error: r.error,
           idempotencyKey: ikey,
         });
-        results.push({ channel, status: r.status, providerMessageId: r.providerMessageId, error: r.error });
+        results.push({
+          channel,
+          status: r.status,
+          providerMessageId: r.providerMessageId,
+          error: r.error,
+          skipReason: r.skipReason,
+        });
       } else {
         const templateMapping = mapEventToTemplate(type);
         let r;

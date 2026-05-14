@@ -69,7 +69,7 @@ export function mapBlooioPayloadToStatus(data: unknown): MessageStatus {
     providerStatus === 'processing' ||
     providerStatus === 'submitted'
   ) {
-    return 'sent';
+    return 'queued';
   }
   return 'sent';
 }
@@ -102,7 +102,7 @@ export async function fetchBlooioMessageStatus(
 
 /**
  * Poll Blooio until delivered/failed or timeout. Updates logs when POST still shows queued/sent.
- * Disable with BLOOIO_SKIP_DELIVERY_POLL=true. Tune with BLOOIO_DELIVERY_POLL_MAX_MS (default 20000).
+ * Disable with BLOOIO_SKIP_DELIVERY_POLL=true. Tune with BLOOIO_DELIVERY_POLL_MAX_MS (default 45000).
  * Carrier-confirmed `delivered` often arrives later than a few seconds; without webhooks, longer
  * polls improve accuracy up to the serverless limit.
  */
@@ -113,9 +113,9 @@ export async function pollBlooioSmsUntilTerminal(
 ): Promise<{ status: MessageStatus; raw: unknown } | null> {
   if (process.env.BLOOIO_SKIP_DELIVERY_POLL === 'true') return null;
   const envMs = Number(process.env.BLOOIO_DELIVERY_POLL_MAX_MS);
-  const defaultMax = Number.isFinite(envMs) && envMs > 0 ? envMs : 20_000;
+  const defaultMax = Number.isFinite(envMs) && envMs > 0 ? envMs : 45_000;
   const maxMs = opts?.maxMs ?? defaultMax;
-  const intervalMs = opts?.intervalMs ?? 500;
+  const intervalMs = opts?.intervalMs ?? 600;
   const deadline = Date.now() + maxMs;
   let last: { status: MessageStatus; raw: unknown } | null = null;
   // Brief pause: status route can 404 until the message record exists after 202 Accepted.
@@ -137,7 +137,7 @@ export async function sendBlooioSmsWithDeliveryPoll(opts: {
 }): Promise<SendChannelResult> {
   const r = await sendBlooioSms(opts);
   const e164 = normalizeToE164(opts.to);
-  if (!r.success || !r.providerMessageId || !e164) return r;
+  if (r.status === 'skipped' || !r.success || !r.providerMessageId || !e164) return r;
   const polled = await pollBlooioSmsUntilTerminal(e164, r.providerMessageId);
   if (!polled) return r;
   return {
@@ -198,7 +198,20 @@ export async function sendBlooioSms(opts: {
         return { success: false, status: 'failed', error: `Blooio ${res.status}: ${text}` };
       }
 
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      // Blooio: new accepts use 202; HTTP 200 + Idempotency-Key means cached message — no new SMS to handset.
+      if (res.status === 200 && opts.idempotencyKey) {
+        return {
+          success: true,
+          status: 'skipped',
+          skipReason: 'blooio-idempotent-replay',
+          error:
+            'Blooio returned HTTP 200 for this Idempotency-Key: same message as within the last 24h — no new SMS was sent. Use a fresh shareBatchId per invite wave.',
+          providerMessageId: extractBlooioMessageId(data),
+          raw: { ...data, blooioIdempotentReplay: true, blooioHttpStatus: res.status },
+        };
+      }
+
       const status = mapBlooioPayloadToStatus(data);
       const providerMessageId = extractBlooioMessageId(data);
 
@@ -206,7 +219,7 @@ export async function sendBlooioSms(opts: {
         success: status !== 'failed',
         status,
         providerMessageId,
-        raw: data,
+        raw: { ...data, blooioHttpStatus: res.status },
       };
     } catch (err: any) {
       return { success: false, status: 'failed', error: err?.message || String(err) };

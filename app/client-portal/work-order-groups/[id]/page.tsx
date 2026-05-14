@@ -423,6 +423,10 @@ export default function ClientWorkOrderGroupDetail() {
       }
 
       const { subAuthIds, isFirstShare, subcontractors: sharedSubs } = data;
+      const shareBatchId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `b-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
       setGroup((prev) => prev ? {
         ...prev,
@@ -471,7 +475,7 @@ export default function ClientWorkOrderGroupDetail() {
           body: JSON.stringify({
             type: 'bidding-opportunity',
             subcontractorId: messagingSubId,
-            context: { workOrderId: group.id, workOrderNumber: `GROUP-${group.id.slice(0, 8)}`, workOrderTitle: `Combined Work Orders (${bundles.length} orders)`, locationName: primaryWo?.locationName || '', category: primaryWo?.category || '', priority: primaryWo?.priority || '' },
+            context: { workOrderId: group.id, workOrderNumber: `GROUP-${group.id.slice(0, 8)}`, workOrderTitle: `Combined Work Orders (${bundles.length} orders)`, locationName: primaryWo?.locationName || '', category: primaryWo?.category || '', priority: primaryWo?.priority || '', shareBatchId },
           }),
         }).catch(console.error);
       });

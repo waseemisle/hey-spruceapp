@@ -24,6 +24,8 @@ export function formatMessagingSkipReason(reason: string | undefined): string {
     'no-phone': 'No phone number on file',
     'subcontractor-not-approved': 'Subcontractor is not approved',
     'provider-not-configured': 'SMS/WhatsApp provider not configured on server',
+    'blooio-idempotent-replay':
+      'Blooio reused a prior message (same idempotency key) — no new SMS was sent. Each invite wave now sends a unique shareBatchId.',
   };
   return map[reason] ?? reason.replace(/-/g, ' ');
 }
@@ -62,7 +64,9 @@ export function collectMessagingProblems(
       lines.push(`${recipientLabel} (${r.channel}): ${r.error || 'failed'}`);
     }
     if (r.status === 'skipped') {
-      lines.push(`${recipientLabel} (${r.channel}): ${formatMessagingSkipReason(r.skipReason)}`);
+      lines.push(
+        `${recipientLabel} (${r.channel}): ${(r.error && r.error.trim()) || formatMessagingSkipReason(r.skipReason)}`,
+      );
     }
   }
   return lines;

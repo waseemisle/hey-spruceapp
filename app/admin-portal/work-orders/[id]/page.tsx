@@ -1005,6 +1005,10 @@ export default function ViewWorkOrder() {
     try {
       // Snapshot before we clear selection — used for email, SMS, async bidding docs
       const shareSubIds = [...selectedSubcontractors];
+      const shareBatchId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `b-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       const workOrderNumber = workOrder.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
       const subAuthIds = shareSubIds.map((subId) => {
         const sub = subcontractors.find((s) => s.id === subId);
@@ -1125,6 +1129,7 @@ export default function ViewWorkOrder() {
                     locationName: workOrder.locationName,
                     category: workOrder.category,
                     priority: workOrder.priority,
+                    shareBatchId,
                   },
                 }),
               });

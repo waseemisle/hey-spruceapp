@@ -1910,6 +1910,10 @@ const handleLocationSelect = (locationId: string) => {
     try {
       // Ensure workOrderNumber exists, generate if missing
       const workOrderNumber = workOrderToShare.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
+      const shareBatchId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `b-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
       // If this is a combined bundle, attach the full workOrderIds list to the bidding card.
       let workOrderGroupId: string | null = (workOrderToShare as any).workOrderGroupId || null;
@@ -1999,7 +2003,7 @@ const handleLocationSelect = (locationId: string) => {
             body: JSON.stringify({
               type: 'bidding-opportunity',
               subcontractorId: messagingSubId,
-              context: { workOrderId: workOrderToShare.id, workOrderNumber, workOrderTitle: workOrderToShare.title, locationName: workOrderToShare.locationName, category: workOrderToShare.category, priority: workOrderToShare.priority },
+              context: { workOrderId: workOrderToShare.id, workOrderNumber, workOrderTitle: workOrderToShare.title, locationName: workOrderToShare.locationName, category: workOrderToShare.category, priority: workOrderToShare.priority, shareBatchId },
             }),
           }).catch(err => console.error('Messaging send failed (non-fatal):', err));
         }));

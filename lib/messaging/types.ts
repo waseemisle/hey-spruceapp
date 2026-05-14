@@ -20,5 +20,7 @@ export interface SendChannelResult {
   status: MessageStatus;
   providerMessageId?: string;
   error?: string;
+  /** When Blooio returns HTTP 200 for a duplicate Idempotency-Key (no new SMS). */
+  skipReason?: string;
   raw?: any;
 }

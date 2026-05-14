@@ -494,6 +494,10 @@ export default function ViewClientWorkOrder() {
     setSubmitting(true);
     try {
       const workOrderNumber = workOrder.workOrderNumber || `WO-${Date.now().toString().slice(-8)}`;
+      const shareBatchId =
+        typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `b-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
       const subAuthIds = selectedSubcontractors.map(subId => {
         const sub = subcontractors.find(s => s.id === subId);
@@ -556,7 +560,7 @@ export default function ViewClientWorkOrder() {
           fetch('/api/messaging/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subcontractorAuthId(sub), context: { workOrderId: workOrder.id, workOrderNumber, workOrderTitle: workOrder.title, locationName: workOrder.locationName, category: workOrder.category, priority: workOrder.priority } }),
+            body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subcontractorAuthId(sub), context: { workOrderId: workOrder.id, workOrderNumber, workOrderTitle: workOrder.title, locationName: workOrder.locationName, category: workOrder.category, priority: workOrder.priority, shareBatchId } }),
           }).catch(err => console.error('Messaging send failed (non-fatal):', err));
         }
       } catch (emailError) {
