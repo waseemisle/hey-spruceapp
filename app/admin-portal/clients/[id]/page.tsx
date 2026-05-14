@@ -121,6 +121,7 @@ interface Location {
 interface Company {
   id: string;
   name: string;
+  invoiceConsolidationEnabled?: boolean;
 }
 
 interface ClientCharge {
@@ -865,6 +866,14 @@ export default function ClientDetailPage() {
 
   // ─── Consolidated Invoice Actions ─────────────────────────────────────────
 
+  // Permission gate — only show consolidation UI when the client's company
+  // has invoiceConsolidationEnabled === true.
+  const companyInvoiceConsolidationEnabled = (() => {
+    if (!client?.companyId) return false;
+    const comp = companies.find(c => c.id === client.companyId);
+    return comp?.invoiceConsolidationEnabled === true;
+  })();
+
   // IDs already used in existing consolidated invoices
   const alreadyConsolidatedIds = new Set(consolidatedInvoices.flatMap((ci) => ci.invoiceIds));
 
@@ -933,11 +942,18 @@ export default function ClientDetailPage() {
         createdAt: serverTimestamp(),
       });
 
-      // If charged, mark all individual invoices as paid
+      // If charged, mark all individual invoices + linked work orders as paid
       if (isPaid) {
         const batch = writeBatch(db);
         for (const invId of selectedInvoiceIds) {
+          const inv = invoices.find((i) => i.id === invId);
           batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
+          if (inv?.workOrderId) {
+            batch.update(doc(db, 'workOrders', inv.workOrderId), {
+              status: 'completed',
+              updatedAt: serverTimestamp(),
+            });
+          }
         }
         await batch.commit();
       }
@@ -980,7 +996,7 @@ export default function ClientDetailPage() {
         throw new Error(chargeData.error || chargeData.message || 'Charge failed');
       }
 
-      // Batch: mark consolidated invoice as paid + mark each individual invoice as paid
+      // Batch: mark consolidated invoice as paid + mark each individual invoice + work orders as paid
       const batch = writeBatch(db);
       batch.update(doc(db, 'consolidatedInvoices', ci.id), {
         status: 'paid',
@@ -990,7 +1006,14 @@ export default function ClientDetailPage() {
         paidAt: serverTimestamp(),
       });
       for (const invId of ci.invoiceIds) {
+        const inv = invoices.find((i) => i.id === invId);
         batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
+        if (inv?.workOrderId) {
+          batch.update(doc(db, 'workOrders', inv.workOrderId), {
+            status: 'completed',
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
       await batch.commit();
 
@@ -1009,7 +1032,14 @@ export default function ClientDetailPage() {
       const batch = writeBatch(db);
       batch.update(doc(db, 'consolidatedInvoices', ci.id), { status: 'paid', paidAt: serverTimestamp() });
       for (const invId of ci.invoiceIds) {
+        const inv = invoices.find((i) => i.id === invId);
         batch.update(doc(db, 'invoices', invId), { status: 'paid', paidAt: serverTimestamp() });
+        if (inv?.workOrderId) {
+          batch.update(doc(db, 'workOrders', inv.workOrderId), {
+            status: 'completed',
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
       await batch.commit();
       toast.success(`Consolidated invoice marked as paid`);
@@ -1701,7 +1731,8 @@ export default function ClientDetailPage() {
               </div>
             </div>
 
-            {/* ── Consolidated Billing Terms ── */}
+            {/* ── Consolidated Billing Terms ── (only shown when company has invoiceConsolidationEnabled) */}
+            {companyInvoiceConsolidationEnabled && (
             <div className="rounded-lg border border-border overflow-hidden">
               <div className="bg-muted px-4 py-2 border-b border-border flex items-center justify-between">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1747,6 +1778,7 @@ export default function ClientDetailPage() {
                 </div>
               )}
             </div>
+            )}
 
           </div>
         </div>
@@ -1861,9 +1893,9 @@ export default function ClientDetailPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
-            CONSOLIDATED INVOICES
+            CONSOLIDATED INVOICES — only shown when company has permission
         ══════════════════════════════════════════════════════════════════════ */}
-        {consolidatedInvoices.length > 0 && (
+        {companyInvoiceConsolidationEnabled && consolidatedInvoices.length > 0 && (
           <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-foreground text-base flex items-center gap-2">

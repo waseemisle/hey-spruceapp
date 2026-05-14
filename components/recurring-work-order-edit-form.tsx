@@ -173,7 +173,7 @@ export default function RecurringWorkOrderEditForm({ id, onSaved, onCancel }: Re
           recurrenceStartDate: toDateStr(pattern?.startDate),
           recurrenceEndDate: toDateStr(pattern?.endDate),
           recurrenceMaxOccurrences: pattern?.maxOccurrences?.toString() || '',
-          invoiceScheduleType: invoice?.type || 'monthly',
+          invoiceScheduleType: (invoice?.type as typeof formData.invoiceScheduleType) || 'monthly',
           invoiceScheduleInterval: invoice?.interval || 1,
           invoiceScheduleDayOfMonth: invoice?.dayOfMonth || 1,
           invoiceTime: invoice?.time || '09:00',

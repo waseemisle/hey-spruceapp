@@ -13,7 +13,7 @@ import {
   Mail, Phone, ChevronDown, ChevronUp, ChevronRight, Eye, MapPin, Receipt,
   MailPlus, Settings, Sparkles, ArrowLeft, Globe2, Clock, UserCheck,
   PlusCircle, GitBranch, Tag, Workflow, RotateCcw, ShieldCheck,
-  ListChecks, FileText, Repeat,
+  ListChecks, FileText, Repeat, Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -40,6 +40,7 @@ interface Company {
   // When true, subcontractors invited to bid on this company's work orders
   // may submit an invoice directly instead of going through the quote flow.
   allowSubDirectInvoiceFromBidding?: boolean;
+  invoiceConsolidationEnabled?: boolean;
 }
 
 interface Client {
@@ -132,6 +133,7 @@ function configuredFeatureCount(c: Company): number {
   if (c.invoiceLocationEmailEnabled) n++;
   if (c.marginEdgeEnabled) n++;
   if (c.allowSubDirectInvoiceFromBidding) n++;
+  if (c.invoiceConsolidationEnabled) n++;
   return n;
 }
 
@@ -239,6 +241,9 @@ export default function CompaniesPermissions() {
   // Direct invoice from bidding — per-company toggle + save state.
   const [companyDirectInvoice, setCompanyDirectInvoice] = useState<Record<string, boolean>>({});
   const [companyDirectInvoiceSaving, setCompanyDirectInvoiceSaving] = useState<string | null>(null);
+  // Invoice Consolidation — per-company toggle + save state.
+  const [companyInvoiceConsolidation, setCompanyInvoiceConsolidation] = useState<Record<string, boolean>>({});
+  const [companyInvoiceConsolidationSaving, setCompanyInvoiceConsolidationSaving] = useState<string | null>(null);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -262,6 +267,7 @@ export default function CompaniesPermissions() {
       const marginEdgeEnabledMap: Record<string, boolean> = {};
       const marginEdgeEmailMap: Record<string, string> = {};
       const directInvoiceMap: Record<string, boolean> = {};
+      const consolidationMap: Record<string, boolean> = {};
       comps.forEach((c) => {
         allowedStatesMap[c.id] = Array.isArray(c.allowedSubcontractorStates) ? c.allowedSubcontractorStates : [];
         invoiceApprovalMap[c.id] = c.invoiceApprovalRequired === true;
@@ -269,6 +275,7 @@ export default function CompaniesPermissions() {
         marginEdgeEnabledMap[c.id] = c.marginEdgeEnabled === true;
         marginEdgeEmailMap[c.id] = c.marginEdgeInvoiceEmail || '';
         directInvoiceMap[c.id] = c.allowSubDirectInvoiceFromBidding === true;
+        consolidationMap[c.id] = c.invoiceConsolidationEnabled === true;
       });
       setCompanyAllowedStates(allowedStatesMap);
       setCompanyInvoiceApproval(invoiceApprovalMap);
@@ -276,6 +283,7 @@ export default function CompaniesPermissions() {
       setCompanyMarginEdgeEnabled(marginEdgeEnabledMap);
       setCompanyMarginEdgeEmail(marginEdgeEmailMap);
       setCompanyDirectInvoice(directInvoiceMap);
+      setCompanyInvoiceConsolidation(consolidationMap);
 
       const permissionsMap: Record<string, Client['permissions']> = {};
       cls.forEach((client) => {
@@ -428,6 +436,24 @@ export default function CompaniesPermissions() {
       toast.error(e?.message || 'Failed to save Direct Invoice setting');
     } finally {
       setCompanyDirectInvoiceSaving(null);
+    }
+  };
+
+  // --- Invoice consolidation perm --------------------------------------
+  const handleSaveInvoiceConsolidation = async (companyId: string, enabled: boolean) => {
+    setCompanyInvoiceConsolidationSaving(companyId);
+    try {
+      await updateDoc(doc(db, 'companies', companyId), {
+        invoiceConsolidationEnabled: enabled,
+        updatedAt: serverTimestamp(),
+      });
+      setCompanyInvoiceConsolidation((prev) => ({ ...prev, [companyId]: enabled }));
+      setCompanies((prev) => prev.map((c) => c.id === companyId ? { ...c, invoiceConsolidationEnabled: enabled } : c));
+      toast.success(enabled ? 'Invoice consolidation enabled' : 'Invoice consolidation disabled');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save');
+    } finally {
+      setCompanyInvoiceConsolidationSaving(null);
     }
   };
 
@@ -736,6 +762,11 @@ export default function CompaniesPermissions() {
                     onSetDirectInvoice={(v) => setCompanyDirectInvoice((prev) => ({ ...prev, [selectedCompany.id]: v }))}
                     onSaveDirectInvoice={() => handleSaveDirectInvoice(selectedCompany.id)}
                     directInvoiceSaving={companyDirectInvoiceSaving === selectedCompany.id}
+
+                    invoiceConsolidationEnabled={companyInvoiceConsolidation[selectedCompany.id] === true}
+                    onSetInvoiceConsolidation={(v) => setCompanyInvoiceConsolidation((prev) => ({ ...prev, [selectedCompany.id]: v }))}
+                    onSaveInvoiceConsolidation={() => handleSaveInvoiceConsolidation(selectedCompany.id, companyInvoiceConsolidation[selectedCompany.id] ?? false)}
+                    invoiceConsolidationSaving={companyInvoiceConsolidationSaving === selectedCompany.id}
                   />
                 )}
 
@@ -792,6 +823,11 @@ function SettingsTab(props: {
   onSetDirectInvoice: (v: boolean) => void;
   onSaveDirectInvoice: () => void;
   directInvoiceSaving: boolean;
+
+  invoiceConsolidationEnabled: boolean;
+  onSetInvoiceConsolidation: (v: boolean) => void;
+  onSaveInvoiceConsolidation: () => void;
+  invoiceConsolidationSaving: boolean;
 }) {
   const {
     company,
@@ -801,6 +837,7 @@ function SettingsTab(props: {
     marginEdgeEnabled, marginEdgeEmail, onSetMarginEdgeEnabled, onSetMarginEdgeEmail,
     onSaveMarginEdge, marginEdgeSaving,
     directInvoiceEnabled, onSetDirectInvoice, onSaveDirectInvoice, directInvoiceSaving,
+    invoiceConsolidationEnabled, onSetInvoiceConsolidation, onSaveInvoiceConsolidation, invoiceConsolidationSaving,
   } = props;
 
   const allStates = companyAllowedStates.length === 0;
@@ -813,6 +850,7 @@ function SettingsTab(props: {
     marginEdgeEnabled !== (company.marginEdgeEnabled === true) ||
     (marginEdgeEmail || '').trim() !== (company.marginEdgeInvoiceEmail || '').trim();
   const directInvoiceDirty = directInvoiceEnabled !== (company.allowSubDirectInvoiceFromBidding === true);
+  const consolidationDirty = invoiceConsolidationEnabled !== (company.invoiceConsolidationEnabled === true);
 
   return (
     <div className="space-y-4">
@@ -961,6 +999,35 @@ function SettingsTab(props: {
             <p className="font-medium text-foreground">Allow subcontractors to submit invoices directly from bidding</p>
             <p className="text-xs text-muted-foreground mt-0.5">
               Skips the quote step for invited subs on this company's orders. Invoice approval rules (72h window) still apply if enabled above.
+            </p>
+          </div>
+        </div>
+      </SettingCard>
+
+      {/* Invoice Consolidation */}
+      <SettingCard
+        accent="indigo"
+        icon={Layers}
+        title="Invoice Consolidation"
+        description="Allow combining multiple invoices for this company into one consolidated invoice with a single auto-charge. Also enables automatic weekly/monthly consolidation on Daily Scheduled Invoices."
+        statusBadge={<StatusPill on={invoiceConsolidationEnabled} />}
+        footer={
+          <Button size="sm" onClick={onSaveInvoiceConsolidation} disabled={invoiceConsolidationSaving || !consolidationDirty} className="gap-1.5">
+            <Save className="h-3.5 w-3.5" />
+            {invoiceConsolidationSaving ? 'Saving…' : consolidationDirty ? 'Save Consolidation' : 'Saved'}
+          </Button>
+        }
+      >
+        <div className="flex items-start gap-4 p-3 rounded-lg bg-muted/30 border border-border">
+          <Switch
+            checked={invoiceConsolidationEnabled}
+            onCheckedChange={onSetInvoiceConsolidation}
+          />
+          <div className="text-sm">
+            <p className="font-medium text-foreground">Enable invoice consolidation for this company</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Combines 3+ invoices into one consolidated invoice and charges once. Required to use the
+              consolidation feature on Scheduled Invoices and the client billing page.
             </p>
           </div>
         </div>

@@ -20,7 +20,7 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Pause, Play, Edit2, X, Calendar, Receipt, Zap, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Pause, Play, Edit2, X, Calendar, Receipt, Zap, Loader2, CheckCircle, AlertCircle, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateAllScheduledDates, type RecurrencePatternLabel } from '@/lib/recurrence';
 import { formatMoney } from '@/lib/money';
@@ -95,6 +95,7 @@ export default function ScheduledInvoiceDetailPage() {
   const [executions, setExecutions] = useState<ScheduledInvoiceExecution[]>([]);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<string | null>(null);
+  const [consolidating, setConsolidating] = useState(false);
 
   // Global cron lead-time — the cron actually fires this many days
   // BEFORE the schedule's nextExecution so the admin has time to
@@ -177,6 +178,31 @@ export default function ScheduledInvoiceDetailPage() {
 
     return [...past, ...upcoming].sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [invoice, executions]);
+
+  const handleConsolidateNow = async () => {
+    if (!invoice) return;
+    if (!confirm('Generate a consolidated invoice now for all accumulated drafts in the current window?')) return;
+    setConsolidating(true);
+    try {
+      const res = await fetch('/api/scheduled-invoices/consolidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledInvoiceId: invoice.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      const count = data?.processedIds?.length ?? data?.processed ?? 0;
+      if (count > 0) {
+        toast.success('Consolidated invoice generated successfully.');
+      } else {
+        toast.info('No accumulated invoices found for the current window.');
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Consolidation failed.');
+    } finally {
+      setConsolidating(false);
+    }
+  };
 
   const handleStatusChange = async (newStatus: 'active' | 'paused' | 'cancelled') => {
     if (!invoice) return;
@@ -496,6 +522,56 @@ export default function ScheduledInvoiceDetailPage() {
             </div>
           </CardContent>
         </Card>
+
+        {(invoice as any).consolidationEnabled && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Invoice Consolidation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase">Period</p>
+                  <p className="font-semibold mt-1 capitalize">{(invoice as any).consolidationPeriod || 'weekly'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase">Window Start</p>
+                  <p className="font-semibold mt-1">
+                    {(invoice as any).consolidationWindowStart
+                      ? fmtDate(toDate((invoice as any).consolidationWindowStart))
+                      : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase">Auto-charge</p>
+                  <p className="font-semibold mt-1">
+                    {(invoice as any).consolidationAutoCharge ? 'Enabled' : 'Disabled'}
+                  </p>
+                </div>
+              </div>
+              <div className="pt-3 border-t flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleConsolidateNow}
+                  disabled={consolidating || invoice.status !== 'active'}
+                  className="gap-1.5"
+                >
+                  {consolidating
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <Layers className="h-4 w-4" />}
+                  Consolidate Now
+                </Button>
+                <p className="text-xs text-muted-foreground self-center">
+                  Generates a consolidated invoice for all accumulated drafts in the current window.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

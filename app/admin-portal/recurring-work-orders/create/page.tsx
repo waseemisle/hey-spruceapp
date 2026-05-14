@@ -10,10 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ArrowLeft, Save, Calendar, Clock, RotateCcw,
-  ChevronDown, ChevronUp, Settings, Search, Check
+  ChevronDown, ChevronUp, Settings, Search, Check, Layers, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { RecurringWorkOrder, RecurrencePattern, InvoiceSchedule } from '@/types';
+import {
+  RECURRENCE_PATTERN_LABELS,
+  type RecurrencePatternLabel,
+  buildRecurrencePattern,
+  generateAllScheduledDates,
+} from '@/lib/recurrence';
 
 import { PageContainer } from '@/components/ui/page-container';
 import { PortalListPage } from '@/components/ui/portal-list-page';
@@ -40,6 +46,17 @@ interface Company {
   id: string;
   clientId?: string;
   name: string;
+  invoiceConsolidationEnabled?: boolean;
+}
+
+interface PaymentMethodLite {
+  id: string;
+  type?: 'card' | 'us_bank_account';
+  last4?: string;
+  brand?: string;
+  bankName?: string;
+  verificationStatus?: 'pending' | 'verified';
+  isDefault?: boolean;
 }
 
 interface Category {
@@ -154,6 +171,11 @@ export default function CreateRecurringWorkOrder() {
   const [submitting, setSubmitting] = useState(false);
   const [showAdvancedRecurrence, setShowAdvancedRecurrence] = useState(false);
 
+  // Invoice-schedule-specific state
+  const [selectedClientPMs, setSelectedClientPMs] = useState<PaymentMethodLite[]>([]);
+  const [selectedClientDefaultPMId, setSelectedClientDefaultPMId] = useState('');
+  const [invoiceCompanyHasConsolidation, setInvoiceCompanyHasConsolidation] = useState(false);
+
   const RECURRENCE_PATTERN_OPTIONS = ['DAILY', 'SEMIANNUALLY', 'QUARTERLY', 'MONTHLY', 'BI-MONTHLY', 'BI-WEEKLY'] as const;
 
   const [formData, setFormData] = useState({
@@ -185,6 +207,19 @@ export default function CreateRecurringWorkOrder() {
     invoiceScheduleCustomPattern: '',
     invoiceTime: '09:00',
     timezone: 'America/New_York',
+    // Extended invoice schedule fields (new full-featured UI)
+    invoiceRecurrencePatternLabel: 'MONTHLY' as RecurrencePatternLabel,
+    invoiceDaysOfWeek: [] as number[],
+    invoiceDaysOfMonth: [1] as number[],
+    invoiceStartDate: '',
+    invoiceEndDate: '',
+    invoiceAutoCharge: false,
+    invoiceAutoChargePaymentMethodId: '',
+    invoiceConsolidationEnabled: false,
+    invoiceConsolidationPeriod: 'weekly' as 'weekly' | 'bi-weekly' | 'monthly',
+    invoiceConsolidationEndDayOfWeek: 0,
+    invoiceConsolidationAutoCharge: false,
+    invoiceConsolidationAutoChargePaymentMethodId: '',
   });
 
   const fetchClients = async () => {
@@ -384,12 +419,35 @@ export default function CreateRecurringWorkOrder() {
         }),
       } as RecurrencePattern;
 
+      const invoiceIntervalMap: Record<RecurrencePatternLabel, number> = {
+        DAILY: 1, WEEKLY: 1, 'BI-WEEKLY': 2, MONTHLY: 1, 'BI-MONTHLY': 2, QUARTERLY: 3, SEMIANNUALLY: 6,
+      };
+      const invoiceType = formData.invoiceRecurrencePatternLabel.toLowerCase().replace('bi_', 'bi-') as InvoiceSchedule['type'];
       const invoiceSchedule: InvoiceSchedule = {
-        type: formData.invoiceScheduleType,
-        interval: formData.invoiceScheduleType === 'bi-monthly' ? 2 : formData.invoiceScheduleType === 'quarterly' ? 3 : formData.invoiceScheduleType === 'semiannually' ? 6 : formData.invoiceScheduleInterval,
-        dayOfMonth: formData.invoiceScheduleDayOfMonth,
+        type: invoiceType,
+        interval: invoiceIntervalMap[formData.invoiceRecurrencePatternLabel],
+        daysOfMonth: formData.invoiceDaysOfMonth,
+        dayOfMonth: formData.invoiceDaysOfMonth[0] ?? 1,
+        daysOfWeek: formData.invoiceDaysOfWeek,
+        ...(formData.invoiceStartDate ? { startDate: new Date(formData.invoiceStartDate) } : {}),
+        ...(formData.invoiceEndDate ? { endDate: new Date(formData.invoiceEndDate) } : { endDate: null }),
         time: formData.invoiceTime,
         timezone: formData.timezone,
+        autoCharge: formData.invoiceAutoCharge,
+        ...(formData.invoiceAutoCharge && formData.invoiceAutoChargePaymentMethodId
+          ? { autoChargePaymentMethodId: formData.invoiceAutoChargePaymentMethodId }
+          : {}),
+        ...(formData.invoiceRecurrencePatternLabel === 'DAILY' && formData.invoiceConsolidationEnabled
+          ? {
+              consolidationEnabled: true,
+              consolidationPeriod: formData.invoiceConsolidationPeriod,
+              consolidationEndDayOfWeek: formData.invoiceConsolidationEndDayOfWeek,
+              consolidationAutoCharge: formData.invoiceConsolidationAutoCharge,
+              ...(formData.invoiceConsolidationAutoCharge && formData.invoiceConsolidationAutoChargePaymentMethodId
+                ? { consolidationAutoChargePaymentMethodId: formData.invoiceConsolidationAutoChargePaymentMethodId }
+                : {}),
+            }
+          : {}),
       } as InvoiceSchedule;
 
       const workOrderNumber = `RWO-${Date.now().toString().slice(-8).toUpperCase()}`;
@@ -469,7 +527,7 @@ export default function CreateRecurringWorkOrder() {
     }
   };
 
-  const handleClientSelect = (clientId: string) => {
+  const handleClientSelect = async (clientId: string) => {
     // Clients store companyId directly — use that as the primary link
     const client = clients.find(c => c.id === clientId);
     const autoCompanyId = client?.companyId || '';
@@ -484,7 +542,37 @@ export default function CreateRecurringWorkOrder() {
       clientId,
       companyId: autoCompanyId,
       locationId: autoLocationId,
+      invoiceConsolidationEnabled: false,
     }));
+
+    // Load client PMs for auto-charge picker
+    setSelectedClientPMs([]);
+    setSelectedClientDefaultPMId('');
+    setInvoiceCompanyHasConsolidation(false);
+
+    try {
+      const { getDoc: gd, doc: d } = await import('firebase/firestore');
+      const clientSnap = await gd(d(db, 'clients', clientId));
+      if (clientSnap.exists()) {
+        const data = clientSnap.data() as any;
+        const pms: PaymentMethodLite[] = Array.isArray(data.paymentMethods)
+          ? data.paymentMethods.filter((m: any) => m?.id && m?.verificationStatus !== 'pending')
+          : [];
+        setSelectedClientPMs(pms);
+        setSelectedClientDefaultPMId(data.defaultPaymentMethodId || pms[0]?.id || '');
+      }
+    } catch { /* non-fatal */ }
+
+    if (autoCompanyId) {
+      try {
+        const { getDoc: gd, doc: d } = await import('firebase/firestore');
+        const compSnap = await gd(d(db, 'companies', autoCompanyId));
+        if (compSnap.exists()) {
+          const compData = compSnap.data() as any;
+          setInvoiceCompanyHasConsolidation(compData.invoiceConsolidationEnabled === true);
+        }
+      } catch { /* non-fatal */ }
+    }
   };
 
   const handleCompanySelect = (companyId: string) => {
@@ -545,6 +633,86 @@ export default function CreateRecurringWorkOrder() {
   };
 
   const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const DAY_LABELS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const handleInvoicePatternChange = (label: RecurrencePatternLabel) => {
+    setFormData(prev => {
+      const next = { ...prev, invoiceRecurrencePatternLabel: label };
+      const isWeekday = label === 'DAILY' || label === 'BI-WEEKLY';
+      const isMonthly = ['MONTHLY', 'BI-MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(label);
+      if (!isWeekday) next.invoiceDaysOfWeek = [];
+      if (!isMonthly) next.invoiceDaysOfMonth = [];
+      if (isMonthly && prev.invoiceDaysOfMonth.length === 0) next.invoiceDaysOfMonth = [1];
+      if (label === 'BI-MONTHLY') {
+        next.invoiceDaysOfMonth = prev.invoiceDaysOfMonth.length === 2 ? prev.invoiceDaysOfMonth : [1, 15];
+      } else if (isMonthly) {
+        next.invoiceDaysOfMonth = prev.invoiceDaysOfMonth.length >= 1 ? [prev.invoiceDaysOfMonth[0]] : [1];
+      }
+      if (label === 'BI-WEEKLY') {
+        next.invoiceDaysOfWeek = prev.invoiceDaysOfWeek.length === 1 ? prev.invoiceDaysOfWeek : [1];
+      }
+      if (label !== 'DAILY') next.invoiceConsolidationEnabled = false;
+      return next;
+    });
+  };
+
+  const toggleInvoiceDayOfWeek = (idx: number) => {
+    setFormData(prev => {
+      const has = prev.invoiceDaysOfWeek.includes(idx);
+      if (prev.invoiceRecurrencePatternLabel === 'BI-WEEKLY') {
+        return { ...prev, invoiceDaysOfWeek: has ? [] : [idx] };
+      }
+      return {
+        ...prev,
+        invoiceDaysOfWeek: has
+          ? prev.invoiceDaysOfWeek.filter(d => d !== idx)
+          : [...prev.invoiceDaysOfWeek, idx],
+      };
+    });
+  };
+
+  const toggleInvoiceDayOfMonth = (day: number) => {
+    setFormData(prev => {
+      const has = prev.invoiceDaysOfMonth.includes(day);
+      if (prev.invoiceRecurrencePatternLabel === 'BI-MONTHLY') {
+        if (has) return { ...prev, invoiceDaysOfMonth: prev.invoiceDaysOfMonth.filter(d => d !== day) };
+        if (prev.invoiceDaysOfMonth.length >= 2) return { ...prev, invoiceDaysOfMonth: [...prev.invoiceDaysOfMonth.slice(1), day] };
+        return { ...prev, invoiceDaysOfMonth: [...prev.invoiceDaysOfMonth, day] };
+      }
+      return { ...prev, invoiceDaysOfMonth: [day] };
+    });
+  };
+
+  const labelForPm = (pm: PaymentMethodLite): string => {
+    if (pm.type === 'us_bank_account') return `${pm.bankName || pm.brand || 'Bank'} ••${pm.last4 || ''}`;
+    const brand = pm.brand ? pm.brand.charAt(0).toUpperCase() + pm.brand.slice(1) : 'Card';
+    return `${brand} ••${pm.last4 || ''}`;
+  };
+
+  const invoicePreviewDates = (() => {
+    if (!formData.invoiceStartDate) return [] as Date[];
+    const label = formData.invoiceRecurrencePatternLabel;
+    const isWeekday = label === 'DAILY' || label === 'BI-WEEKLY';
+    const isMonthly = ['MONTHLY', 'BI-MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(label);
+    if (isWeekday && formData.invoiceDaysOfWeek.length === 0) return [] as Date[];
+    if (isMonthly && formData.invoiceDaysOfMonth.length === 0) return [] as Date[];
+    if (label === 'BI-WEEKLY' && formData.invoiceDaysOfWeek.length !== 1) return [] as Date[];
+    if (label === 'BI-MONTHLY' && formData.invoiceDaysOfMonth.length !== 2) return [] as Date[];
+    if (['MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(label) && formData.invoiceDaysOfMonth.length !== 1) return [] as Date[];
+    try {
+      const pattern = buildRecurrencePattern({
+        label,
+        startDate: formData.invoiceStartDate,
+        endDate: formData.invoiceEndDate || null,
+        daysOfWeek: formData.invoiceDaysOfWeek,
+        daysOfMonth: formData.invoiceDaysOfMonth,
+      });
+      return generateAllScheduledDates({ recurrencePattern: pattern, recurrencePatternLabel: label }, 5);
+    } catch {
+      return [] as Date[];
+    }
+  })();
 
   const getOrdinalSuffixShort = (n: number) => {
     const s = ['th', 'st', 'nd', 'rd'];
@@ -1009,7 +1177,7 @@ export default function CreateRecurringWorkOrder() {
             </CardContent>
           </Card>
 
-          {/* Invoice Schedule */}
+          {/* Invoice Schedule — full-featured version mirroring scheduled-invoices/create */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1018,65 +1186,93 @@ export default function CreateRecurringWorkOrder() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Frequency */}
               <div>
-                <Label>Invoice Schedule Pattern</Label>
+                <Label>Frequency *</Label>
                 <div className="mt-1">
                   <SearchableSelect
-                    options={invoiceScheduleTypeOptions}
-                    value={formData.invoiceScheduleType}
-                    onChange={(val) => setFormData({ ...formData, invoiceScheduleType: val as 'monthly' | 'bi-monthly' | 'quarterly' | 'semiannually' })}
-                    placeholder="Select schedule..."
+                    options={RECURRENCE_PATTERN_LABELS.map(l => ({ value: l, label: l }))}
+                    value={formData.invoiceRecurrencePatternLabel}
+                    onChange={(v) => handleInvoicePatternChange(v as RecurrencePatternLabel)}
+                    placeholder="Select frequency..."
                   />
                 </div>
               </div>
 
-              {formData.invoiceScheduleType === 'monthly' && (
-                <>
-                  <div>
-                    <Label>Send Invoice Every</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="1"
-                        value={formData.invoiceScheduleInterval}
-                        onChange={(e) => setFormData({ ...formData, invoiceScheduleInterval: parseInt(e.target.value) || 1 })}
-                        className="w-20"
-                      />
-                      <span className="text-sm text-muted-foreground">month(s)</span>
-                    </div>
-                  </div>
-
-                </>
-              )}
-
-              {formData.invoiceScheduleType === 'bi-monthly' && (
-                <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">An invoice will be sent every 2 months on the selected day.</p>
-                  <div>
-                    <Label>Invoice Day of Month</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={formData.invoiceScheduleDayOfMonth}
-                      onChange={(e) => setFormData({ ...formData, invoiceScheduleDayOfMonth: parseInt(e.target.value) || 1 })}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">e.g., 1 = 1st of month</p>
-                  </div>
-                  <div className="p-3 bg-primary/10 rounded-md text-sm text-primary">
-                    Invoices will be sent on the <strong>{formData.invoiceScheduleDayOfMonth}{getOrdinalSuffix(formData.invoiceScheduleDayOfMonth)}</strong> of every 2nd month.
+              {/* Day-of-month picker */}
+              {['MONTHLY', 'BI-MONTHLY', 'QUARTERLY', 'SEMIANNUALLY'].includes(formData.invoiceRecurrencePatternLabel) && (
+                <div>
+                  <Label>
+                    {formData.invoiceRecurrencePatternLabel === 'BI-MONTHLY' ? 'Pick 2 days of the month *' : 'Day of the month *'}
+                  </Label>
+                  <div className="mt-2 grid grid-cols-7 gap-1">
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => {
+                      const isSelected = formData.invoiceDaysOfMonth.includes(day);
+                      return (
+                        <button key={day} type="button" onClick={() => toggleInvoiceDayOfMonth(day)}
+                          className={`h-9 rounded-md text-sm font-medium border transition-colors ${isSelected ? 'bg-primary text-white border-primary' : 'border-border hover:bg-muted text-foreground'}`}>
+                          {day}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
+              {/* Day-of-week picker */}
+              {(formData.invoiceRecurrencePatternLabel === 'DAILY' || formData.invoiceRecurrencePatternLabel === 'BI-WEEKLY') && (
+                <div>
+                  <Label>
+                    {formData.invoiceRecurrencePatternLabel === 'BI-WEEKLY' ? 'Day of the week *' : 'Days of the week *'}
+                  </Label>
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-7 gap-2">
+                    {DAY_LABELS_SHORT.map((day, idx) => {
+                      const isSelected = formData.invoiceDaysOfWeek.includes(idx);
+                      return (
+                        <button key={day} type="button" onClick={() => toggleInvoiceDayOfWeek(idx)}
+                          className={`h-9 rounded-md text-sm font-medium border transition-colors ${isSelected ? 'bg-primary text-white border-primary' : 'border-border hover:bg-muted text-foreground'}`}>
+                          {day}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Dates */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Invoice start date</Label>
+                  <Input type="date" className="mt-1" value={formData.invoiceStartDate}
+                    onChange={e => setFormData({ ...formData, invoiceStartDate: e.target.value })} />
+                </div>
+                <div>
+                  <Label>Invoice end date <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                  <Input type="date" className="mt-1" value={formData.invoiceEndDate}
+                    onChange={e => setFormData({ ...formData, invoiceEndDate: e.target.value })} />
+                </div>
+              </div>
+
+              {/* Preview */}
+              {invoicePreviewDates.length > 0 && (
+                <div className="rounded-lg border border-primary/20 bg-primary/15 p-3">
+                  <p className="text-sm font-semibold text-primary mb-2">Next {invoicePreviewDates.length} invoice dates:</p>
+                  <ul className="space-y-1">
+                    {invoicePreviewDates.map((d, i) => (
+                      <li key={i} className="text-sm text-primary">
+                        {i + 1}. {d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Time + Timezone */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Time of Day</Label>
-                  <Input
-                    type="time"
-                    value={formData.invoiceTime}
-                    onChange={(e) => setFormData({ ...formData, invoiceTime: e.target.value })}
-                  />
+                  <Input type="time" value={formData.invoiceTime}
+                    onChange={(e) => setFormData({ ...formData, invoiceTime: e.target.value })} />
                 </div>
                 <div>
                   <Label>Timezone</Label>
@@ -1090,6 +1286,120 @@ export default function CreateRecurringWorkOrder() {
                   </div>
                 </div>
               </div>
+
+              {/* Auto-charge */}
+              <div className="pt-3 border-t">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" checked={formData.invoiceAutoCharge}
+                    onChange={e => setFormData({ ...formData, invoiceAutoCharge: e.target.checked })}
+                    className="mt-1 accent-primary" />
+                  <div className="text-sm">
+                    <p className="font-medium flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 text-primary" />
+                      Auto-charge on each invoice <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Automatically charge the client's saved payment method when each invoice is generated.
+                    </p>
+                  </div>
+                </label>
+                {formData.invoiceAutoCharge && selectedClientPMs.length > 0 && (
+                  <div className="mt-2 ml-6">
+                    <Label>Pay from</Label>
+                    <select value={formData.invoiceAutoChargePaymentMethodId}
+                      onChange={e => setFormData({ ...formData, invoiceAutoChargePaymentMethodId: e.target.value })}
+                      className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="">Select payment method…</option>
+                      {selectedClientPMs.map(pm => (
+                        <option key={pm.id} value={pm.id}>
+                          {labelForPm(pm)}{pm.id === selectedClientDefaultPMId ? ' (default)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {formData.invoiceAutoCharge && selectedClientPMs.length === 0 && (
+                  <p className="mt-2 ml-6 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                    This client has no saved payment methods for auto-charge.
+                  </p>
+                )}
+              </div>
+
+              {/* Consolidation (only for DAILY + company has permission) */}
+              {formData.invoiceRecurrencePatternLabel === 'DAILY' && invoiceCompanyHasConsolidation && (
+                <div className="pt-3 border-t space-y-4">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input type="checkbox" checked={formData.invoiceConsolidationEnabled}
+                      onChange={e => setFormData({ ...formData, invoiceConsolidationEnabled: e.target.checked })}
+                      className="mt-1 accent-primary" />
+                    <div className="text-sm">
+                      <p className="font-medium flex items-center gap-1.5">
+                        <Layers className="h-3.5 w-3.5 text-primary" />
+                        Consolidate daily invoices into one periodic invoice <span className="text-xs font-normal text-muted-foreground">(optional)</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Accumulates daily invoices and generates one consolidated invoice at the end of each period.
+                      </p>
+                    </div>
+                  </label>
+                  {formData.invoiceConsolidationEnabled && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium">Consolidation Period *</label>
+                        <div className="mt-1 grid grid-cols-3 gap-2">
+                          {(['weekly', 'bi-weekly', 'monthly'] as const).map(p => (
+                            <button key={p} type="button"
+                              onClick={() => setFormData({ ...formData, invoiceConsolidationPeriod: p })}
+                              className={`h-9 rounded-md text-sm font-medium border transition-colors ${formData.invoiceConsolidationPeriod === p ? 'bg-primary text-white border-primary' : 'border-border hover:bg-muted text-foreground'}`}>
+                              {p === 'bi-weekly' ? 'Bi-Weekly' : p.charAt(0).toUpperCase() + p.slice(1)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {(formData.invoiceConsolidationPeriod === 'weekly' || formData.invoiceConsolidationPeriod === 'bi-weekly') && (
+                        <div>
+                          <label className="text-sm font-medium">Consolidation Day *</label>
+                          <div className="mt-2 grid grid-cols-2 sm:grid-cols-7 gap-2">
+                            {DAY_LABELS_SHORT.map((day, idx) => (
+                              <button key={day} type="button"
+                                onClick={() => setFormData({ ...formData, invoiceConsolidationEndDayOfWeek: idx })}
+                                className={`h-9 rounded-md text-sm font-medium border transition-colors ${formData.invoiceConsolidationEndDayOfWeek === idx ? 'bg-primary text-white border-primary' : 'border-border hover:bg-muted text-foreground'}`}>
+                                {day}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <label className="flex items-start gap-2 cursor-pointer">
+                        <input type="checkbox" checked={formData.invoiceConsolidationAutoCharge}
+                          onChange={e => setFormData({ ...formData, invoiceConsolidationAutoCharge: e.target.checked })}
+                          className="mt-1 accent-primary" />
+                        <div className="text-sm">
+                          <p className="font-medium">Auto-charge the consolidated invoice</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Automatically charge the client when the consolidated invoice is created.
+                          </p>
+                        </div>
+                      </label>
+                      {formData.invoiceConsolidationAutoCharge && selectedClientPMs.length > 0 && (
+                        <div className="ml-6">
+                          <Label>Pay from</Label>
+                          <select value={formData.invoiceConsolidationAutoChargePaymentMethodId}
+                            onChange={e => setFormData({ ...formData, invoiceConsolidationAutoChargePaymentMethodId: e.target.value })}
+                            className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm">
+                            <option value="">Select payment method…</option>
+                            {selectedClientPMs.map(pm => (
+                              <option key={pm.id} value={pm.id}>
+                                {labelForPm(pm)}{pm.id === selectedClientDefaultPMId ? ' (default)' : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
 

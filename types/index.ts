@@ -144,6 +144,7 @@ export interface Company {
   address?: Address;
   createdAt: Date;
   updatedAt: Date;
+  invoiceConsolidationEnabled?: boolean;
 }
 
 // Keep Subsidiary as alias for backward compatibility
@@ -665,11 +666,22 @@ export interface RecurrencePattern {
 }
 
 export interface InvoiceSchedule {
-  type: 'monthly' | 'bi-monthly' | 'quarterly' | 'semiannually';
+  type: 'monthly' | 'bi-monthly' | 'quarterly' | 'semiannually' | 'daily' | 'weekly' | 'bi-weekly';
   interval: number;
   dayOfMonth?: number;
-  time: string; // Time of day to send invoice
+  daysOfMonth?: number[];
+  daysOfWeek?: number[];
+  startDate?: Date;
+  endDate?: Date | null;
+  time: string;
   timezone: string;
+  autoCharge?: boolean;
+  autoChargePaymentMethodId?: string;
+  consolidationEnabled?: boolean;
+  consolidationPeriod?: 'weekly' | 'bi-weekly' | 'monthly';
+  consolidationEndDayOfWeek?: number;
+  consolidationAutoCharge?: boolean;
+  consolidationAutoChargePaymentMethodId?: string;
 }
 
 export interface RecurringWorkOrderExecution {
@@ -730,6 +742,21 @@ export interface ScheduledInvoice {
   autoCharge?: boolean;
   /** Optional admin override pinning a specific saved PM. Falls back to client default. */
   autoChargePaymentMethodId?: string;
+  // ── Invoice Consolidation ────────────────────────────────────────────────────
+  /** When true the cron accumulates per-iteration draft invoices and generates
+   *  one consolidated invoice at the end of each consolidation period. */
+  consolidationEnabled?: boolean;
+  /** How often to consolidate: 'weekly' | 'bi-weekly' | 'monthly' */
+  consolidationPeriod?: 'weekly' | 'bi-weekly' | 'monthly';
+  /** Day of week (0=Sun…6=Sat) that ends the weekly/bi-weekly window. */
+  consolidationEndDayOfWeek?: number;
+  /** Day of month that ends the monthly window. */
+  consolidationEndDayOfMonth?: number;
+  /** When true the consolidated invoice is auto-charged on creation. */
+  consolidationAutoCharge?: boolean;
+  consolidationAutoChargePaymentMethodId?: string;
+  /** Start of the current accumulation window (Firestore Timestamp). */
+  consolidationWindowStart?: any;
   totalExecutions: number;
   successfulExecutions: number;
   failedExecutions: number;

@@ -20,6 +20,10 @@
       {
         "path": "/api/invoices/auto-finalize",
         "schedule": "5 * * * *"
+      },
+      {
+        "path": "/api/scheduled-invoices/consolidate",
+        "schedule": "0 2 * * *"
       }
     ],
     "functions": {
@@ -44,6 +48,10 @@
         "memory": 1024
       },
       "app/api/invoices/auto-finalize/route.ts": {
+        "maxDuration": 120,
+        "memory": 1024
+      },
+      "app/api/scheduled-invoices/consolidate/route.ts": {
         "maxDuration": 120,
         "memory": 1024
       },

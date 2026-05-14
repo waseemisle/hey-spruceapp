@@ -134,6 +134,12 @@ export async function POST(request: NextRequest) {
 
     const adminApprovalNeeded = await shouldRequireAdminApproval(db, si.clientId).catch(() => false);
 
+    // When consolidationEnabled, daily invoices accumulate as drafts rather
+    // than being sent to the client immediately. The consolidation cron
+    // (/api/scheduled-invoices/consolidate) collects them at the end of
+    // each period and generates one consolidated invoice.
+    const isConsolidationMode = si.consolidationEnabled === true;
+
     step = 'create-invoice-doc';
     const invoiceRef = await addDoc(collection(db, 'invoices'), {
       invoiceNumber,
@@ -145,17 +151,19 @@ export async function POST(request: NextRequest) {
       workOrderTitle: si.title,
       workOrderDescription: si.description || '',
       totalAmount: total,
-      status: adminApprovalNeeded ? 'pending_approval' : 'sent',
-      adminApprovalRequired: !!adminApprovalNeeded,
+      // Consolidation-mode: keep as draft so the client doesn't see individual invoices.
+      status: isConsolidationMode ? 'draft' : (adminApprovalNeeded ? 'pending_approval' : 'sent'),
+      adminApprovalRequired: isConsolidationMode ? false : !!adminApprovalNeeded,
+      ...(isConsolidationMode ? { consolidatedPending: true } : {}),
       lineItems: safeLineItems,
       dueDate: Timestamp.fromDate(dueDate),
       notes: si.notes || si.description || '',
       terms: si.terms || '',
-      sentAt: adminApprovalNeeded ? null : serverTimestamp(),
+      sentAt: (isConsolidationMode || adminApprovalNeeded) ? null : serverTimestamp(),
       // Per-invoice auto-charge target — written here so the Auto-Charge
       // button on the invoice detail page (and any future picker) reads
       // the same value as the schedule's choice.
-      ...(si.autoCharge && si.autoChargePaymentMethodId
+      ...(si.autoCharge && si.autoChargePaymentMethodId && !isConsolidationMode
         ? { autoChargePaymentMethodId: si.autoChargePaymentMethodId }
         : {}),
       creationSource: 'scheduled_invoice',
@@ -168,7 +176,9 @@ export async function POST(request: NextRequest) {
         userId: 'system',
         userName: 'Scheduled Invoice Cron',
         userRole: 'system',
-        details: `Invoice created from scheduled invoice ${si.scheduledInvoiceNumber || scheduledInvoiceId} (${triggeredBy})`,
+        details: isConsolidationMode
+          ? `Invoice accumulated for consolidation from scheduled invoice ${si.scheduledInvoiceNumber || scheduledInvoiceId} (${triggeredBy})`
+          : `Invoice created from scheduled invoice ${si.scheduledInvoiceNumber || scheduledInvoiceId} (${triggeredBy})`,
         metadata: { scheduledInvoiceId, scheduledDate: scheduledDate.toISOString(), executionId: execRef.id },
       }],
       createdAt: serverTimestamp(),
@@ -176,6 +186,8 @@ export async function POST(request: NextRequest) {
     });
 
     // ── Stripe pay link + (optional) auto-charge ─────────────────────
+    // Skipped entirely in consolidation mode — individual accumulated
+    // invoices are drafts and will be paid via the consolidated invoice.
     step = 'stripe-create-payment-link';
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL
       || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://groundopscos.vercel.app');
@@ -184,46 +196,46 @@ export async function POST(request: NextRequest) {
     let autoChargeOutcome: 'succeeded' | 'failed' | 'requires_action' | 'pending' | null = null;
     let autoChargeError: string | undefined;
 
-    try {
-      const stripeRes = await fetch(`${baseUrl}/api/stripe/create-payment-link`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          invoiceId: invoiceRef.id,
-          invoiceNumber,
-          amount: total,
-          customerEmail: si.clientEmail,
-          clientName: si.clientName,
-          clientId: si.clientId,
-          // When auto-charge is wanted, ask the route to flip
-          // collection_method=charge_automatically and set the default PM.
-          autoCharge: si.autoCharge === true && !adminApprovalNeeded,
-        }),
-      });
-      const stripeData = await stripeRes.json().catch(() => ({} as any));
-      if (stripeRes.ok && stripeData?.paymentLink) {
-        stripePaymentLink = stripeData.paymentLink;
-        stripeInvoiceId = stripeData.stripeInvoiceId || stripeData.sessionId || '';
-        if (stripeData?.autoCharge?.attempted) {
-          autoChargeOutcome = stripeData.autoCharge.outcome || 'pending';
+    if (!isConsolidationMode) {
+      try {
+        const stripeRes = await fetch(`${baseUrl}/api/stripe/create-payment-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            invoiceId: invoiceRef.id,
+            invoiceNumber,
+            amount: total,
+            customerEmail: si.clientEmail,
+            clientName: si.clientName,
+            clientId: si.clientId,
+            // When auto-charge is wanted, ask the route to flip
+            // collection_method=charge_automatically and set the default PM.
+            autoCharge: si.autoCharge === true && !adminApprovalNeeded,
+          }),
+        });
+        const stripeData = await stripeRes.json().catch(() => ({} as any));
+        if (stripeRes.ok && stripeData?.paymentLink) {
+          stripePaymentLink = stripeData.paymentLink;
+          stripeInvoiceId = stripeData.stripeInvoiceId || stripeData.sessionId || '';
+          if (stripeData?.autoCharge?.attempted) {
+            autoChargeOutcome = stripeData.autoCharge.outcome || 'pending';
+          }
+        } else {
+          autoChargeError = stripeData?.error || `Stripe error (HTTP ${stripeRes.status})`;
+          console.warn('[scheduled-invoices/execute] Stripe link creation failed:', autoChargeError);
         }
-      } else {
-        // Non-fatal — record but proceed. Admin can re-run or the client
-        // can pay via the email flow once we add the link manually.
-        autoChargeError = stripeData?.error || `Stripe error (HTTP ${stripeRes.status})`;
-        console.warn('[scheduled-invoices/execute] Stripe link creation failed:', autoChargeError);
+      } catch (e: any) {
+        autoChargeError = e?.message || 'Stripe call threw';
+        console.error('[scheduled-invoices/execute] Stripe call threw:', e);
       }
-    } catch (e: any) {
-      autoChargeError = e?.message || 'Stripe call threw';
-      console.error('[scheduled-invoices/execute] Stripe call threw:', e);
     }
 
     // ── Customer invoice email ──────────────────────────────────────
-    // Skipped when admin approval is required — the regular invoice
-    // approval flow handles client notification on approval.
+    // Skipped when admin approval is required or consolidation mode —
+    // the consolidation cron handles client notification after merging.
     step = 'send-invoice-email';
     let emailSent = false;
-    if (!adminApprovalNeeded) {
+    if (!adminApprovalNeeded && !isConsolidationMode) {
       try {
         const emailRes = await fetch(`${baseUrl}/api/email/send-invoice`, {
           method: 'POST',

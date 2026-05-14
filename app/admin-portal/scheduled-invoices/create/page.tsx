@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SearchableSelect } from '@/components/ui/searchable-select';
-import { ArrowLeft, Save, Plus, Trash2, Calendar, Receipt, Zap } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Calendar, Receipt, Zap, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   RECURRENCE_PATTERN_LABELS,
@@ -43,6 +43,7 @@ interface ClientLite {
   id: string;
   fullName: string;
   email: string;
+  companyId?: string;
   paymentMethods?: Array<{
     id: string;
     type?: 'card' | 'us_bank_account';
@@ -99,6 +100,8 @@ export default function CreateScheduledInvoicePage() {
   const [clients, setClients] = useState<ClientLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // Whether the selected client's company has invoiceConsolidationEnabled
+  const [companyHasConsolidation, setCompanyHasConsolidation] = useState(false);
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -115,6 +118,11 @@ export default function CreateScheduledInvoicePage() {
     endDate: '',
     autoCharge: false,
     autoChargePaymentMethodId: '',
+    consolidationEnabled: false,
+    consolidationPeriod: 'weekly' as 'weekly' | 'bi-weekly' | 'monthly',
+    consolidationEndDayOfWeek: 0,
+    consolidationAutoCharge: false,
+    consolidationAutoChargePaymentMethodId: '',
   });
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
@@ -133,6 +141,7 @@ export default function CreateScheduledInvoicePage() {
             id: d.id,
             fullName: data.fullName || data.companyName || data.email || 'Client',
             email: data.email || '',
+            companyId: data.companyId || '',
             paymentMethods: Array.isArray(data.paymentMethods) ? data.paymentMethods : [],
             defaultPaymentMethodId: data.defaultPaymentMethodId,
           } as ClientLite;
@@ -257,14 +266,28 @@ export default function CreateScheduledInvoicePage() {
     });
   };
 
-  const handleClientChange = (clientId: string) => {
+  const handleClientChange = async (clientId: string) => {
     const c = clients.find(x => x.id === clientId);
     setFormData(prev => ({
       ...prev,
       clientId,
       clientName: c?.fullName || '',
       clientEmail: c?.email || '',
+      // Reset consolidation fields when client changes
+      consolidationEnabled: false,
     }));
+    setCompanyHasConsolidation(false);
+    if (c?.companyId) {
+      try {
+        const compSnap = await getDoc(doc(db, 'companies', c.companyId));
+        if (compSnap.exists()) {
+          const compData = compSnap.data() as any;
+          setCompanyHasConsolidation(compData.invoiceConsolidationEnabled === true);
+        }
+      } catch {
+        // non-fatal — just leave consolidation hidden
+      }
+    }
   };
 
   const handlePatternChange = (label: RecurrencePatternLabel) => {
@@ -308,6 +331,11 @@ export default function CreateScheduledInvoicePage() {
     }
     if (formData.autoCharge && !formData.autoChargePaymentMethodId) {
       return 'Auto-charge requires a saved payment method on the client.';
+    }
+    if (formData.consolidationEnabled) {
+      if (formData.consolidationAutoCharge && !formData.consolidationAutoChargePaymentMethodId) {
+        return 'Consolidation auto-charge requires a saved payment method.';
+      }
     }
     return null;
   };
@@ -370,6 +398,18 @@ export default function CreateScheduledInvoicePage() {
         autoCharge: formData.autoCharge === true,
         ...(formData.autoCharge && formData.autoChargePaymentMethodId
           ? { autoChargePaymentMethodId: formData.autoChargePaymentMethodId }
+          : {}),
+        ...(formData.recurrencePatternLabel === 'DAILY' && formData.consolidationEnabled
+          ? {
+              consolidationEnabled: true,
+              consolidationPeriod: formData.consolidationPeriod,
+              consolidationEndDayOfWeek: formData.consolidationEndDayOfWeek,
+              consolidationAutoCharge: formData.consolidationAutoCharge,
+              ...(formData.consolidationAutoCharge && formData.consolidationAutoChargePaymentMethodId
+                ? { consolidationAutoChargePaymentMethodId: formData.consolidationAutoChargePaymentMethodId }
+                : {}),
+              consolidationWindowStart: Timestamp.fromDate(new Date(formData.startDate)),
+            }
           : {}),
         totalExecutions: 0,
         successfulExecutions: 0,
@@ -759,6 +799,126 @@ export default function CreateScheduledInvoicePage() {
             )}
           </CardContent>
         </Card>
+
+        {formData.recurrencePatternLabel === 'DAILY' && companyHasConsolidation && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Invoice Consolidation <span className="text-sm font-normal text-muted-foreground">(optional)</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.consolidationEnabled}
+                  onChange={e => setFormData({ ...formData, consolidationEnabled: e.target.checked })}
+                  className="mt-1 accent-primary"
+                />
+                <div className="text-sm">
+                  <p className="font-medium">Consolidate daily invoices into one periodic invoice</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Instead of sending a separate invoice each day, the system accumulates all daily
+                    invoices and generates one consolidated invoice at the end of each period.
+                    Paying or auto-charging the consolidated invoice marks all linked invoices as paid.
+                  </p>
+                </div>
+              </label>
+
+              {formData.consolidationEnabled && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium">Consolidation Period *</label>
+                    <div className="mt-1 grid grid-cols-3 gap-2">
+                      {(['weekly', 'bi-weekly', 'monthly'] as const).map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, consolidationPeriod: p })}
+                          className={`h-9 rounded-md text-sm font-medium border transition-colors capitalize ${
+                            formData.consolidationPeriod === p
+                              ? 'bg-primary text-white border-primary'
+                              : 'border-border hover:bg-muted text-foreground'
+                          }`}
+                        >
+                          {p === 'bi-weekly' ? 'Bi-Weekly' : p.charAt(0).toUpperCase() + p.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formData.consolidationPeriod === 'weekly' && 'One consolidated invoice will be generated at the end of each week.'}
+                      {formData.consolidationPeriod === 'bi-weekly' && 'One consolidated invoice will be generated every two weeks.'}
+                      {formData.consolidationPeriod === 'monthly' && 'One consolidated invoice will be generated at the end of each month.'}
+                    </p>
+                  </div>
+
+                  {(formData.consolidationPeriod === 'weekly' || formData.consolidationPeriod === 'bi-weekly') && (
+                    <div>
+                      <label className="text-sm font-medium">Consolidation Day *</label>
+                      <p className="text-xs text-muted-foreground mb-2">Which day of the week triggers the consolidated invoice?</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
+                        {DAY_LABELS.map((day, idx) => (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, consolidationEndDayOfWeek: idx })}
+                            className={`h-9 rounded-md text-sm font-medium border transition-colors ${
+                              formData.consolidationEndDayOfWeek === idx
+                                ? 'bg-primary text-white border-primary'
+                                : 'border-border hover:bg-muted text-foreground'
+                            }`}
+                          >
+                            {day}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.consolidationAutoCharge}
+                      onChange={e => setFormData({ ...formData, consolidationAutoCharge: e.target.checked })}
+                      className="mt-1 accent-primary"
+                    />
+                    <div className="text-sm">
+                      <p className="font-medium">Auto-charge the consolidated invoice</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        When the consolidated invoice is created, automatically charge the client's
+                        saved payment method and mark all linked invoices as paid.
+                      </p>
+                    </div>
+                  </label>
+
+                  {formData.consolidationAutoCharge && chargeablePms.length > 0 && (
+                    <div className="ml-6">
+                      <label className="text-sm font-medium">Pay from</label>
+                      <select
+                        value={formData.consolidationAutoChargePaymentMethodId}
+                        onChange={e => setFormData({ ...formData, consolidationAutoChargePaymentMethodId: e.target.value })}
+                        className="mt-1 w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      >
+                        <option value="">Select payment method…</option>
+                        {chargeablePms.map((pm) => (
+                          <option key={pm.id} value={pm.id}>
+                            {labelForPm(pm)}{pm.id === selectedClient?.defaultPaymentMethodId ? ' (default)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {formData.consolidationAutoCharge && chargeablePms.length === 0 && (
+                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 ml-6">
+                      This client has no saved payment method for auto-charge.
+                    </p>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="flex gap-3 pt-2">
           <Button onClick={handleSubmit} disabled={submitting} className="flex-1">
