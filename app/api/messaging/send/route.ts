@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { resolveMessagingTargets } from '@/lib/messaging/settings';
-import { sendBlooioSms } from '@/lib/messaging/blooio';
+import { sendBlooioSmsWithDeliveryPoll } from '@/lib/messaging/blooio';
 import { sendMetaWhatsApp } from '@/lib/messaging/meta-whatsapp';
 import { logMessage } from '@/lib/messaging/logger';
 import {
@@ -30,6 +30,23 @@ function pickProviderPayload(raw: unknown): Record<string, unknown> | undefined 
     if (o[k] !== undefined && o[k] !== null && o[k] !== '') out[k] = o[k];
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+/** After delivery poll, raw may be `{ blooioSend, blooioStatusPoll }` — surface both for SMS logs. */
+function pickBlooioSmsLogPayload(raw: unknown): Record<string, unknown> | undefined {
+  if (!raw || typeof raw !== 'object') return pickProviderPayload(raw);
+  const o = raw as Record<string, unknown>;
+  if (o.blooioSend && o.blooioStatusPoll) {
+    const send = pickProviderPayload(o.blooioSend);
+    const poll = pickProviderPayload(o.blooioStatusPoll);
+    const merged: Record<string, unknown> = {
+      ...(send ?? {}),
+      statusPoll: poll ?? undefined,
+      deliveryConfirmedViaPoll: true,
+    };
+    return Object.keys(merged).some((k) => merged[k] !== undefined) ? merged : undefined;
+  }
+  return pickProviderPayload(raw);
 }
 
 interface SendResult {
@@ -140,7 +157,7 @@ export async function POST(request: Request) {
             continue;
           }
           const smsText = appendSmsOptOutFooter(msgBody);
-          const r = await sendBlooioSms({ to: e164, text: smsText, idempotencyKey: ikey });
+          const r = await sendBlooioSmsWithDeliveryPoll({ to: e164, text: smsText, idempotencyKey: ikey });
           await logMessage({
             channel: 'sms',
             provider: 'blooio',
@@ -151,7 +168,7 @@ export async function POST(request: Request) {
             body: smsText,
             status: r.status,
             providerMessageId: r.providerMessageId,
-            providerPayload: pickProviderPayload(r.raw),
+            providerPayload: pickBlooioSmsLogPayload(r.raw),
             context: { fromAdmin, testPhone: phone },
             error: r.error,
             idempotencyKey: ikey,
@@ -244,7 +261,7 @@ export async function POST(request: Request) {
 
       if (channel === 'sms') {
         const smsText = appendSmsOptOutFooter(msgBody);
-        const r = await sendBlooioSms({ to: phone, text: smsText, idempotencyKey: ikey });
+        const r = await sendBlooioSmsWithDeliveryPoll({ to: phone, text: smsText, idempotencyKey: ikey });
         await logMessage({
           channel: 'sms',
           provider: 'blooio',
@@ -256,7 +273,7 @@ export async function POST(request: Request) {
           body: smsText,
           status: r.status,
           providerMessageId: r.providerMessageId,
-          providerPayload: pickProviderPayload(r.raw),
+          providerPayload: pickBlooioSmsLogPayload(r.raw),
           context: enrichedCtx,
           error: r.error,
           idempotencyKey: ikey,
