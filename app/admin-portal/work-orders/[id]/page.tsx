@@ -21,6 +21,7 @@ import { getWorkOrderClientDisplayName } from '@/lib/appy-client';
 import { notifyBiddingOpportunity, notifyClientOfQuoteSent } from '@/lib/notifications';
 import { createTimelineEvent, createQuoteTimelineEvent } from '@/lib/timeline';
 import { subcontractorAuthId } from '@/lib/subcontractor-ids';
+import { collectMessagingProblems, type MessagingSendApiBody } from '@/lib/messaging/describe-send-result';
 import { generateInvoiceNumber } from '@/lib/invoice-number';
 import { formatMoney } from '@/lib/money';
 import { canAddBidders, hasBeenSharedForBidding } from '@/lib/bidding-eligibility';
@@ -1100,25 +1101,47 @@ export default function ViewWorkOrder() {
             }),
           }).catch(console.error);
         }
-        const messagingSubId = subcontractorAuthId(sub);
-        fetch('/api/messaging/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          keepalive: true,
-          body: JSON.stringify({
-            type: 'bidding-opportunity',
-            subcontractorId: messagingSubId,
-            context: {
-              workOrderId: workOrder.id,
-              workOrderNumber,
-              workOrderTitle: workOrder.title,
-              locationName: workOrder.locationName,
-              category: workOrder.category,
-              priority: workOrder.priority,
-            },
-          }),
-        }).catch((err) => console.error('Messaging send failed (non-fatal):', err));
       });
+
+      ;(async () => {
+        const problems: string[] = [];
+        await Promise.all(
+          shareSubIds.map(async (subId) => {
+            const sub = subcontractors.find((s) => s.id === subId);
+            if (!sub) return;
+            const messagingSubId = subcontractorAuthId(sub);
+            const label = sub.fullName || sub.email || 'Subcontractor';
+            try {
+              const res = await fetch('/api/messaging/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'bidding-opportunity',
+                  subcontractorId: messagingSubId,
+                  context: {
+                    workOrderId: workOrder.id,
+                    workOrderNumber,
+                    workOrderTitle: workOrder.title,
+                    locationName: workOrder.locationName,
+                    category: workOrder.category,
+                    priority: workOrder.priority,
+                  },
+                }),
+              });
+              const data = (await res.json().catch(() => ({}))) as MessagingSendApiBody;
+              problems.push(...collectMessagingProblems(label, res, data));
+            } catch (e) {
+              problems.push(`${label}: ${e instanceof Error ? e.message : String(e)}`);
+            }
+          }),
+        );
+        if (problems.length > 0) {
+          const max = 6;
+          const shown = problems.slice(0, max);
+          const extra = problems.length > max ? ` (+${problems.length - max} more)` : '';
+          toast.warning(`Some messages did not send: ${shown.join(' · ')}${extra}`);
+        }
+      })().catch(console.error);
 
       // Timeline update in background
       (async () => {
