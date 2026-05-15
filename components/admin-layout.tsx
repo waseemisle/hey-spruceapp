@@ -15,7 +15,7 @@ import {
   Home, Users, Building2, ClipboardList, FileText, Receipt,
   Calendar, MessageSquare, Menu, X, ShieldCheck, RotateCcw,
   Wrench, Tag, XCircle, ChevronDown, BarChart2, Search, Package, Award, Mail, Headphones,
-  Database, FlaskConical, BookOpen, Archive, Clock, Layers, MessageCircle,
+  Database, FlaskConical, BookOpen, Archive, Clock, Layers,
 } from 'lucide-react';
 import ViewControls from '@/components/view-controls';
 import GlobalSearchDialog from '@/components/global-search-dialog';
@@ -99,7 +99,6 @@ const NAV_ITEMS: NavItem[] = [
       { name: 'Messages', href: '/admin-portal/messages', icon: MessageSquare },
       { name: 'Email Logs', href: '/admin-portal/email-logs', icon: Mail },
       { name: 'SMS Logs', href: '/admin-portal/sms-logs', icon: MessageSquare },
-      { name: 'WhatsApp Logs', href: '/admin-portal/whatsapp-logs', icon: MessageCircle },
     ],
   },
   {

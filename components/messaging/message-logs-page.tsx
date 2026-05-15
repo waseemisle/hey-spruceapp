@@ -150,13 +150,12 @@ function StatusBadge({ status }: { status: MessageStatus }) {
 }
 
 interface MessageLogsPageProps {
-  collection: 'smsLogs' | 'whatsappLogs';
+  collection: 'smsLogs';
 }
 
 export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
-  const isWhatsApp = colName === 'whatsappLogs';
-  const title = isWhatsApp ? 'WhatsApp Logs' : 'SMS Logs';
-  const provider = isWhatsApp ? 'Meta WhatsApp' : 'Blooio';
+  const title = 'SMS Logs';
+  const provider = 'Blooio';
 
   const [loading, setLoading] = useState(true);
   const [allLogs, setAllLogs] = useState<MessageLog[]>([]);
@@ -257,7 +256,7 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
   return (
     <PortalListPage
       title={title}
-      subtitle={`All ${isWhatsApp ? 'WhatsApp' : 'SMS'} messages sent via ${provider}`}
+      subtitle={`All SMS messages sent via ${provider}`}
       icon={MessageSquare}
       heroAction={
         <div className="flex flex-wrap items-center gap-3">
@@ -279,18 +278,16 @@ export function MessageLogsPage({ collection: colName }: MessageLogsPageProps) {
     >
       <div className="space-y-4">
 
-          {colName === 'smsLogs' && (
-            <div className="flex gap-3 rounded-lg border border-amber-200/80 bg-amber-50/90 dark:border-amber-900/60 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
-              <Info className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300 mt-0.5" aria-hidden />
-              <div className="space-y-1">
-                <p className="font-medium">Bid invite SMS tracking</p>
-                <p className="text-amber-900/90 dark:text-amber-100/85 leading-snug">
-                  New bid invites include an <strong>invite batch ID</strong> in the Details column so each share gets a fresh Blooio message.
-                  Click <strong>Refresh</strong> after sending. <strong>Skipped</strong> with a Blooio replay message means no new SMS was sent for that request.
-                </p>
-              </div>
+          <div className="flex gap-3 rounded-lg border border-amber-200/80 bg-amber-50/90 dark:border-amber-900/60 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+            <Info className="h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300 mt-0.5" aria-hidden />
+            <div className="space-y-1">
+              <p className="font-medium">Bid invite SMS tracking</p>
+              <p className="text-amber-900/90 dark:text-amber-100/85 leading-snug">
+                New bid invites include an <strong>invite batch ID</strong> in the Details column so each share gets a fresh Blooio message.
+                Click <strong>Refresh</strong> after sending. <strong>Skipped</strong> with a Blooio replay message means no new SMS was sent for that request.
+              </p>
             </div>
-          )}
+          </div>
 
           {/* Filters */}
           <div className="flex flex-wrap gap-3 items-center">

@@ -1,4 +1,4 @@
-export type MessageChannel = 'sms' | 'whatsapp';
+export type MessageChannel = 'sms';
 
 export type MessageEventType =
   | 'subcontractor-approval'
@@ -13,7 +13,7 @@ export type MessageRecipientRole = 'subcontractor' | 'client' | 'admin' | 'unkno
 
 export type MessageStatus = 'sent' | 'delivered' | 'queued' | 'failed' | 'skipped';
 
-export type MessageProvider = 'blooio' | 'meta-whatsapp';
+export type MessageProvider = 'blooio';
 
 export interface SendChannelResult {
   success: boolean;

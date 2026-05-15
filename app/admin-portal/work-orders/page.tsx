@@ -372,27 +372,6 @@ const fetchCategories = async () => {
         }).catch(err => console.error('Failed to send approval email:', err));
       }
 
-      // Send WhatsApp notification to client
-      try {
-        const clientDoc = await getDoc(doc(db, 'clients', workOrderData.clientId));
-        const clientPhone = clientDoc.data()?.phone;
-        if (clientPhone) {
-          await fetch('/api/whatsapp/send-approval', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              toPhone: clientPhone,
-              clientName: workOrderData.clientName,
-              workOrderNumber: workOrderData.workOrderNumber || workOrderId,
-              workOrderTitle: workOrderData.title,
-            }),
-          });
-        }
-      } catch (whatsappErr) {
-        // Don't block approval if WhatsApp fails
-        console.error('WhatsApp notification failed:', whatsappErr);
-      }
-
       toast.success('Work order approved successfully');
       fetchWorkOrders();
     } catch (error) {

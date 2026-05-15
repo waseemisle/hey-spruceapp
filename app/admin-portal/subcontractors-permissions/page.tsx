@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SettingCard, SettingRow } from '@/components/ui/setting-card';
 import {
-  ShieldCheck, MessageSquare, MessageCircle, Smartphone, Users,
+  ShieldCheck, MessageSquare, Smartphone, Users,
   Save, Search, TestTube2, CheckCircle2, XCircle, Loader2,
   ChevronDown, ChevronUp, AlertTriangle, Edit, Receipt, FileText, Stethoscope,
 } from 'lucide-react';
@@ -29,22 +29,22 @@ import { toast } from 'sonner';
 
 interface GlobalSettings {
   enabled: boolean;
-  channels: { sms: { enabled: boolean }; whatsapp: { enabled: boolean } };
-  events: Record<string, { sms: boolean; whatsapp: boolean }>;
+  channels: { sms: { enabled: boolean } };
+  events: Record<string, { sms: boolean }>;
   audience: { subcontractors: boolean; clients: boolean };
   testRecipient?: string;
 }
 
 const DEFAULT_GLOBAL: GlobalSettings = {
   enabled: false,
-  channels: { sms: { enabled: false }, whatsapp: { enabled: false } },
+  channels: { sms: { enabled: false } },
   events: {
-    'subcontractor-approval': { sms: false, whatsapp: false },
-    'bidding-opportunity': { sms: false, whatsapp: false },
-    'quote-approved': { sms: false, whatsapp: false },
-    'client-approval': { sms: false, whatsapp: false },
-    'work-order-assigned': { sms: false, whatsapp: false },
-    'work-order-completed': { sms: false, whatsapp: false },
+    'subcontractor-approval': { sms: false },
+    'bidding-opportunity': { sms: false },
+    'quote-approved': { sms: false },
+    'client-approval': { sms: false },
+    'work-order-assigned': { sms: false },
+    'work-order-completed': { sms: false },
   },
   audience: { subcontractors: false, clients: false },
 };
@@ -73,8 +73,8 @@ interface Subcontractor {
 
 interface SubPerm {
   enabled: boolean;
-  channels?: { sms?: boolean; whatsapp?: boolean };
-  events?: Record<string, { sms?: boolean; whatsapp?: boolean }>;
+  channels?: { sms?: boolean };
+  events?: Record<string, { sms?: boolean }>;
   phoneOverride?: string;
 }
 
@@ -94,18 +94,22 @@ interface TestResult {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-function isProviderConfigured(channel: 'sms' | 'whatsapp'): boolean {
-  // We can't read server env vars on client — show as "unknown" on first load.
-  // After page mounts, we call a ping endpoint that tells us. For now use a heuristic:
-  // the admin can see in the card if it's working after a test send.
-  return true; // UI shows "configured" — actual check happens on send
-}
-
 async function clearServerCache(idToken: string) {
   await fetch('/api/messaging/cache/clear', {
     method: 'POST',
     headers: { Authorization: `Bearer ${idToken}` },
   }).catch(() => {});
+}
+
+function formatTimeUntilReset(firstOnboardedAt: any): string {
+  const first = firstOnboardedAt?.toDate?.() ?? (firstOnboardedAt ? new Date(firstOnboardedAt) : null);
+  if (!first) return '';
+  const resetAt = new Date(first.getTime() + 24 * 60 * 60 * 1000);
+  const diffMs = resetAt.getTime() - Date.now();
+  if (diffMs <= 0) return 'soon';
+  const h = Math.floor(diffMs / 3600000);
+  const m = Math.floor((diffMs % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
 // ── Main component ─────────────────────────────────────────────────────────
@@ -127,7 +131,7 @@ export default function SubcontractorsPermissionsPage() {
 
   const [testPhone, setTestPhone] = useState('');
   const [testResults, setTestResults] = useState<TestResult[]>([]);
-  const [testLoading, setTestLoading] = useState<'sms' | 'whatsapp' | 'both' | null>(null);
+  const [testLoading, setTestLoading] = useState<'sms' | null>(null);
   const [subTestResults, setSubTestResults] = useState<TestResult[]>([]);
   const [subTestLoading, setSubTestLoading] = useState(false);
 
@@ -136,6 +140,11 @@ export default function SubcontractorsPermissionsPage() {
   const [editPermDirty, setEditPermDirty] = useState(false);
   const [editPermSaving, setEditPermSaving] = useState(false);
   const [editPermLoading, setEditPermLoading] = useState(false);
+
+  // ── Onboarding state ───────────────────────────────────────────────────────
+  const [onboardingMap, setOnboardingMap] = useState<Record<string, { onboardedAt: any }>>({});
+  const [dailyCounter, setDailyCounter] = useState<{ count: number; date: string; firstOnboardedAt: any } | null>(null);
+  const [onboardingPhone, setOnboardingPhone] = useState<string | null>(null);
 
   // Load only after auth is restored and adminUsers doc exists (matches Firestore `isAdmin()`).
   useEffect(() => {
@@ -156,6 +165,7 @@ export default function SubcontractorsPermissionsPage() {
         }
         await loadGlobal();
         await loadSubcontractors();
+        await loadOnboardingData();
       })();
     });
     return () => unsub();
@@ -192,6 +202,25 @@ export default function SubcontractorsPermissionsPage() {
       setSubcontractors(subs);
     } catch (err) {
       console.error('Failed to load subcontractors:', err);
+    }
+  }
+
+  async function loadOnboardingData() {
+    try {
+      const snap = await getDocs(collection(db, 'blooioOnboarding'));
+      const map: Record<string, { onboardedAt: any }> = {};
+      let counter: { count: number; date: string; firstOnboardedAt: any } | null = null;
+      snap.docs.forEach(d => {
+        if (d.id === '_dailyCounter') {
+          counter = d.data() as any;
+        } else {
+          map[d.id] = { onboardedAt: d.data().onboardedAt };
+        }
+      });
+      setOnboardingMap(map);
+      setDailyCounter(counter);
+    } catch (err) {
+      console.error('Failed to load onboarding data:', err);
     }
   }
 
@@ -287,21 +316,21 @@ export default function SubcontractorsPermissionsPage() {
     setGlobalDirty(true);
   }
 
-  function updateGlobalEvent(eventKey: string, channel: 'sms' | 'whatsapp', value: boolean) {
+  function updateGlobalEvent(eventKey: string, value: boolean) {
     setGlobalSettings((prev) => ({
       ...prev,
       events: {
         ...prev.events,
-        [eventKey]: { ...prev.events[eventKey], [channel]: value },
+        [eventKey]: { sms: value },
       },
     }));
     setGlobalDirty(true);
   }
 
-  function updateGlobalChannel(channel: 'sms' | 'whatsapp', enabled: boolean) {
+  function updateGlobalChannel(enabled: boolean) {
     setGlobalSettings((prev) => ({
       ...prev,
-      channels: { ...prev.channels, [channel]: { enabled } },
+      channels: { sms: { enabled } },
     }));
     setGlobalDirty(true);
   }
@@ -388,7 +417,7 @@ export default function SubcontractorsPermissionsPage() {
     }
   }
 
-  async function runTestSend(channels: ('sms' | 'whatsapp')[], phone: string, setResults: (r: TestResult[]) => void, setLoading: (v: any) => void, loadingKey: any) {
+  async function runTestSend(channels: ('sms')[], phone: string, setResults: (r: TestResult[]) => void, setLoading: (v: any) => void, loadingKey: any) {
     setLoading(loadingKey);
     setResults([]);
     try {
@@ -419,6 +448,42 @@ export default function SubcontractorsPermissionsPage() {
     }
   }
 
+  async function handleOnboardNumber(sub: Subcontractor) {
+    const phone = sub.phone || sub.phoneNumber || '';
+    if (!phone) { toast.error('No phone number on file for this subcontractor'); return; }
+    setOnboardingPhone(phone);
+    try {
+      const user = auth?.currentUser;
+      const token = user ? await user.getIdToken() : '';
+      const res = await fetch('/api/sms/onboard-number', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ phone, subcontractorId: sub.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 429) {
+          const resetAt = data.resetAt ? new Date(data.resetAt) : null;
+          const timeLeft = resetAt ? Math.ceil((resetAt.getTime() - Date.now()) / 3600000) : null;
+          toast.error(`Daily onboarding limit reached (5/5).${timeLeft ? ` Resets in ~${timeLeft}h.` : ''}`);
+        } else {
+          toast.error(data.error || 'Failed to onboard number');
+        }
+        return;
+      }
+      if (data.alreadyOnboarded) {
+        toast.info('This number is already onboarded on Blooio.');
+      } else {
+        toast.success(`Number onboarded! ${data.remainingToday} slot${data.remainingToday !== 1 ? 's' : ''} remaining today.`);
+      }
+      await loadOnboardingData();
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to onboard');
+    } finally {
+      setOnboardingPhone(null);
+    }
+  }
+
   const filteredSubs = subcontractors.filter(
     (s) =>
       !subSearch ||
@@ -426,9 +491,6 @@ export default function SubcontractorsPermissionsPage() {
       (s.businessName || '').toLowerCase().includes(subSearch.toLowerCase()) ||
       (s.email || '').toLowerCase().includes(subSearch.toLowerCase()),
   );
-
-  const smsConfigured = true; // Blooio SMS — configured via server-side env vars
-  const waConfigured = false; // Meta doesn't expose env on client
 
   return (
     <PortalListPage
@@ -459,19 +521,7 @@ export default function SubcontractorsPermissionsPage() {
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                     <span className="h-2 w-2 rounded-full bg-green-500 inline-block" />Configured
                   </span>
-                  <Switch checked={globalSettings.channels.sms.enabled} onCheckedChange={(v) => updateGlobalChannel('sms', v)} disabled={globalLoading} />
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium">WhatsApp (Meta Cloud API)</p>
-                  <p className="text-xs text-muted-foreground">Sends from your Meta Business number</p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <span className="h-2 w-2 rounded-full bg-amber-400 inline-block" />Configure in env
-                  </span>
-                  <Switch checked={globalSettings.channels.whatsapp.enabled} onCheckedChange={(v) => updateGlobalChannel('whatsapp', v)} disabled={globalLoading} />
+                  <Switch checked={globalSettings.channels.sms.enabled} onCheckedChange={(v) => updateGlobalChannel(v)} disabled={globalLoading} />
                 </div>
               </div>
             </div>
@@ -507,14 +557,13 @@ export default function SubcontractorsPermissionsPage() {
         </SettingCard>
       </div>
 
-      <SettingCard title="Notification Events" icon={ShieldCheck} accent="purple" description="Choose which events trigger SMS and/or WhatsApp notifications">
+      <SettingCard title="Notification Events" icon={ShieldCheck} accent="purple" description="Choose which events trigger SMS notifications">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[400px]">
+          <table className="w-full text-sm min-w-[300px]">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left py-2 pr-4 font-semibold text-muted-foreground text-xs">Event</th>
                 <th className="text-center py-2 px-4 font-semibold text-muted-foreground text-xs w-20">SMS</th>
-                <th className="text-center py-2 px-4 font-semibold text-muted-foreground text-xs w-24">WhatsApp</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -522,10 +571,7 @@ export default function SubcontractorsPermissionsPage() {
                 <tr key={key}>
                   <td className="py-3 pr-4 text-sm font-medium">{label}</td>
                   <td className="py-3 px-4 text-center">
-                    <Switch checked={globalSettings.events[key]?.sms ?? false} onCheckedChange={(v) => updateGlobalEvent(key, 'sms', v)} disabled={globalLoading || !globalSettings.enabled} />
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <Switch checked={globalSettings.events[key]?.whatsapp ?? false} onCheckedChange={(v) => updateGlobalEvent(key, 'whatsapp', v)} disabled={globalLoading || !globalSettings.enabled} />
+                    <Switch checked={globalSettings.events[key]?.sms ?? false} onCheckedChange={(v) => updateGlobalEvent(key, v)} disabled={globalLoading || !globalSettings.enabled} />
                   </td>
                 </tr>
               ))}
@@ -539,7 +585,7 @@ export default function SubcontractorsPermissionsPage() {
           </button>
           {showFutureEvents && (
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm min-w-[400px]">
+              <table className="w-full text-sm min-w-[300px]">
                 <tbody className="divide-y divide-border">
                   {FUTURE_EVENTS.map(({ key, label }) => (
                     <tr key={key} className="opacity-60">
@@ -547,7 +593,6 @@ export default function SubcontractorsPermissionsPage() {
                         <span className="text-sm font-medium">{label}</span>
                         <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded-full">Coming soon</span>
                       </td>
-                      <td className="py-3 px-4 text-center"><Switch checked={false} onCheckedChange={() => {}} disabled /></td>
                       <td className="py-3 px-4 text-center"><Switch checked={false} onCheckedChange={() => {}} disabled /></td>
                     </tr>
                   ))}
@@ -563,7 +608,7 @@ export default function SubcontractorsPermissionsPage() {
         </div>
       </SettingCard>
 
-      <SettingCard title="Test Send" icon={TestTube2 as any} accent="amber" description="Verify your messaging integration without affecting real events">
+      <SettingCard title="Test Send" icon={TestTube2 as any} accent="amber" description="Verify your SMS integration without affecting real events">
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium block mb-1.5">Test phone number (E.164)</label>
@@ -572,12 +617,6 @@ export default function SubcontractorsPermissionsPage() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" size="sm" disabled={!!testLoading} onClick={() => runTestSend(['sms'], testPhone, setTestResults, setTestLoading, 'sms')}>
               {testLoading === 'sms' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}Send Test SMS
-            </Button>
-            <Button variant="outline" size="sm" disabled={!!testLoading} onClick={() => runTestSend(['whatsapp'], testPhone, setTestResults, setTestLoading, 'whatsapp')}>
-              {testLoading === 'whatsapp' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageCircle className="h-4 w-4 mr-2" />}Send Test WhatsApp
-            </Button>
-            <Button size="sm" disabled={!!testLoading} onClick={() => runTestSend(['sms', 'whatsapp'], testPhone, setTestResults, setTestLoading, 'both')}>
-              {testLoading === 'both' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}Send Both
             </Button>
           </div>
           {testResults.length > 0 && (
@@ -597,12 +636,6 @@ export default function SubcontractorsPermissionsPage() {
               ))}
             </div>
           )}
-          <div className="flex gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-            <p>
-              <strong>Meta WhatsApp note:</strong> Test numbers can only message phones on your Meta allowlist (max 5) until your profile is approved. Freeform messages only work within the 24-hour service window — use approved templates for new outreach.
-            </p>
-          </div>
         </div>
       </SettingCard>
 
@@ -610,6 +643,31 @@ export default function SubcontractorsPermissionsPage() {
       <div className="flex items-center gap-2 pt-1">
         <Users className="h-5 w-5 text-primary" />
         <h2 className="text-base font-semibold">Per-Subcontractor Permissions</h2>
+      </div>
+
+      {/* Blooio daily onboarding counter */}
+      <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm ${
+        !dailyCounter || dailyCounter.count === 0
+          ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20 dark:border-green-800 dark:text-green-300'
+          : dailyCounter.count >= 5
+          ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/20 dark:border-red-800 dark:text-red-300'
+          : dailyCounter.count >= 4
+          ? 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300'
+          : 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20 dark:border-green-800 dark:text-green-300'
+      }`}>
+        <div className="flex items-center gap-2">
+          <Smartphone className="h-4 w-4 flex-shrink-0" />
+          <span className="font-medium">
+            Blooio onboarding: {dailyCounter?.count ?? 0} / 5 used today
+          </span>
+        </div>
+        {dailyCounter && dailyCounter.count > 0 && (
+          <span className="text-xs">
+            {dailyCounter.count >= 5
+              ? `Limit reached — resets in ${formatTimeUntilReset(dailyCounter.firstOnboardedAt)}`
+              : `Resets in ${formatTimeUntilReset(dailyCounter.firstOnboardedAt)}`}
+          </span>
+        )}
       </div>
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
@@ -642,6 +700,15 @@ export default function SubcontractorsPermissionsPage() {
                     <p className="text-sm font-medium truncate">{sub.fullName}</p>
                     {sub.businessName && <p className="text-xs text-muted-foreground truncate">{sub.businessName}</p>}
                     <p className="text-xs text-muted-foreground truncate mt-0.5">{sub.email}</p>
+                    {(() => {
+                      const phone = sub.phone || sub.phoneNumber || '';
+                      if (!phone) return <span className="text-xs text-muted-foreground italic">No phone</span>;
+                      const e164 = phone.replace(/\s/g, '').startsWith('+') ? phone.replace(/\s/g, '') : null;
+                      const isOnboarded = e164 && onboardingMap[e164];
+                      return isOnboarded
+                        ? <span className="inline-flex items-center gap-1 text-xs text-green-600"><CheckCircle2 className="h-3 w-3" />Onboarded</span>
+                        : <span className="inline-flex items-center gap-1 text-xs text-amber-600"><AlertTriangle className="h-3 w-3" />Not onboarded</span>;
+                    })()}
                   </button>
                 ))
               )}
@@ -679,6 +746,63 @@ export default function SubcontractorsPermissionsPage() {
                   </div>
                 </div>
 
+                {/* Blooio Onboarding */}
+                {(() => {
+                  const phone = selectedSub.phone || selectedSub.phoneNumber || '';
+                  const e164 = phone.replace(/\s/g, '').startsWith('+') ? phone.replace(/\s/g, '') : phone ? `+${phone.replace(/\D/g,'').slice(-10)}` : null;
+                  const isOnboarded = e164 ? !!onboardingMap[e164] : false;
+                  const onboardedRec = e164 ? onboardingMap[e164] : null;
+                  const limitReached = (dailyCounter?.count ?? 0) >= 5;
+                  return (
+                    <div className={`rounded-xl border p-4 space-y-2 ${isOnboarded ? 'border-green-200 bg-green-50/40 dark:bg-green-950/10 dark:border-green-800' : 'border-amber-200 bg-amber-50/40 dark:bg-amber-950/10 dark:border-amber-800'}`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div>
+                            <p className="text-sm font-semibold">Blooio SMS Onboarding</p>
+                            <p className="text-xs text-muted-foreground font-mono">{phone || 'No phone on file'}</p>
+                          </div>
+                        </div>
+                        {isOnboarded ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-300 px-2.5 py-1 rounded-full">
+                            <CheckCircle2 className="h-3.5 w-3.5" />Onboarded
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 px-2.5 py-1 rounded-full">
+                            <AlertTriangle className="h-3.5 w-3.5" />Not onboarded
+                          </span>
+                        )}
+                      </div>
+                      {isOnboarded && onboardedRec?.onboardedAt && (
+                        <p className="text-xs text-muted-foreground">
+                          Onboarded on {onboardedRec.onboardedAt?.toDate?.()?.toLocaleDateString() ?? '—'}
+                        </p>
+                      )}
+                      {!isOnboarded && phone && (
+                        <div className="pt-1">
+                          {limitReached ? (
+                            <p className="text-xs text-red-600 dark:text-red-400">
+                              Daily limit reached (5/5). Resets in {formatTimeUntilReset(dailyCounter?.firstOnboardedAt)}.
+                            </p>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={onboardingPhone === phone}
+                              onClick={() => handleOnboardNumber(selectedSub)}
+                            >
+                              {onboardingPhone === phone ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Onboarding...</> : <><Smartphone className="h-4 w-4 mr-2" />Onboard Number</>}
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {!phone && (
+                        <p className="text-xs text-muted-foreground italic">Add a phone number to this subcontractor's profile first.</p>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Edit Submission Permissions */}
                 <SettingCard title="Edit Submission Permissions" icon={Edit as any} accent="amber">
                   <SettingRow label="Can edit submitted invoice" description="Allow updating a direct invoice before it is approved or paid">
@@ -705,10 +829,7 @@ export default function SubcontractorsPermissionsPage() {
                   {subPerm.enabled && (
                     <div className="space-y-3 pt-2">
                       <SettingRow label="SMS channel" indent>
-                        <Switch checked={subPerm.channels?.sms !== false} onCheckedChange={(v) => updateSubPerm({ channels: { ...subPerm.channels, sms: v } })} />
-                      </SettingRow>
-                      <SettingRow label="WhatsApp channel" indent>
-                        <Switch checked={subPerm.channels?.whatsapp !== false} onCheckedChange={(v) => updateSubPerm({ channels: { ...subPerm.channels, whatsapp: v } })} />
+                        <Switch checked={subPerm.channels?.sms !== false} onCheckedChange={(v) => updateSubPerm({ channels: { sms: v } })} />
                       </SettingRow>
                     </div>
                   )}
@@ -753,7 +874,7 @@ export default function SubcontractorsPermissionsPage() {
                           const res = await fetch('/api/messaging/send', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type: 'test', testPhone: phone, testFromAdmin: adminName, channels: ['sms', 'whatsapp'] }),
+                            body: JSON.stringify({ type: 'test', testPhone: phone, testFromAdmin: adminName, channels: ['sms'] }),
                           });
                           const data = await res.json();
                           setSubTestResults(data.results || []);
@@ -764,8 +885,8 @@ export default function SubcontractorsPermissionsPage() {
                         }
                       }}
                     >
-                      {subTestLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
-                      Send Test (Both Channels)
+                      {subTestLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
+                      Send Test SMS
                     </Button>
                   </div>
                   {subTestResults.length > 0 && (

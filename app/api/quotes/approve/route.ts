@@ -392,7 +392,7 @@ export async function POST(request: Request) {
       }).catch((e) => console.error('[quotes/approve] assignment notify fail (non-fatal):', e));
     }
 
-    // Fire-and-forget SMS + WhatsApp to the subcontractor whose quote was approved
+    // Fire-and-forget SMS to the subcontractor whose quote was approved
     if (safeSubId) {
       const baseUrl = getBaseUrl();
       fetch(`${baseUrl}/api/messaging/send`, {

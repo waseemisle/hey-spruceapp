@@ -22,7 +22,7 @@ export interface MessageLogEntry {
 }
 
 function collectionFor(channel: MessageChannel): string {
-  return channel === 'sms' ? 'smsLogs' : 'whatsappLogs';
+  return 'smsLogs';
 }
 
 export async function logMessage(entry: Omit<MessageLogEntry, 'sentAt'>): Promise<void> {
@@ -40,7 +40,7 @@ export async function logMessage(entry: Omit<MessageLogEntry, 'sentAt'>): Promis
   }
 }
 
-/** Used by sendMetaWhatsApp to dedupe re-fires within a time window. */
+/** Dedupe re-fires within a time window using idempotency key. */
 export async function findRecentMessageByIdempotencyKey(
   channel: MessageChannel,
   key: string,

@@ -14,15 +14,14 @@ export interface GlobalMessagingSettings {
   enabled: boolean;
   channels: {
     sms: { enabled: boolean };
-    whatsapp: { enabled: boolean };
   };
   events: {
-    'subcontractor-approval': { sms: boolean; whatsapp: boolean };
-    'bidding-opportunity': { sms: boolean; whatsapp: boolean };
-    'quote-approved': { sms: boolean; whatsapp: boolean };
-    'client-approval': { sms: boolean; whatsapp: boolean };
-    'work-order-assigned': { sms: boolean; whatsapp: boolean };
-    'work-order-completed': { sms: boolean; whatsapp: boolean };
+    'subcontractor-approval': { sms: boolean };
+    'bidding-opportunity': { sms: boolean };
+    'quote-approved': { sms: boolean };
+    'client-approval': { sms: boolean };
+    'work-order-assigned': { sms: boolean };
+    'work-order-completed': { sms: boolean };
   };
   audience: {
     subcontractors: boolean;
@@ -36,11 +35,11 @@ export interface GlobalMessagingSettings {
 export interface SubcontractorMessagingPermission {
   subcontractorId: string;
   enabled: boolean;
-  channels?: { sms?: boolean; whatsapp?: boolean };
+  channels?: { sms?: boolean };
   events?: {
-    'subcontractor-approval'?: { sms?: boolean; whatsapp?: boolean };
-    'bidding-opportunity'?: { sms?: boolean; whatsapp?: boolean };
-    'quote-approved'?: { sms?: boolean; whatsapp?: boolean };
+    'subcontractor-approval'?: { sms?: boolean };
+    'bidding-opportunity'?: { sms?: boolean };
+    'quote-approved'?: { sms?: boolean };
   };
   phoneOverride?: string;
   updatedAt: Timestamp;
@@ -66,15 +65,14 @@ const DEFAULT_GLOBAL: Omit<GlobalMessagingSettings, 'updatedAt'> = {
   enabled: false,
   channels: {
     sms: { enabled: false },
-    whatsapp: { enabled: false },
   },
   events: {
-    'subcontractor-approval': { sms: false, whatsapp: false },
-    'bidding-opportunity': { sms: false, whatsapp: false },
-    'quote-approved': { sms: false, whatsapp: false },
-    'client-approval': { sms: false, whatsapp: false },
-    'work-order-assigned': { sms: false, whatsapp: false },
-    'work-order-completed': { sms: false, whatsapp: false },
+    'subcontractor-approval': { sms: false },
+    'bidding-opportunity': { sms: false },
+    'quote-approved': { sms: false },
+    'client-approval': { sms: false },
+    'work-order-assigned': { sms: false },
+    'work-order-completed': { sms: false },
   },
   audience: { subcontractors: false, clients: false },
 };
@@ -114,11 +112,8 @@ async function getGlobalSettings(): Promise<GlobalMessagingSettings> {
   return data;
 }
 
-function isProviderConfigured(channel: MessageChannel): boolean {
-  if (channel === 'sms') return !!process.env.BLOOIO_API_KEY;
-  if (channel === 'whatsapp')
-    return !!(process.env.META_WHATSAPP_ACCESS_TOKEN && process.env.META_WHATSAPP_PHONE_NUMBER_ID);
-  return false;
+function isSmsConfigured(): boolean {
+  return !!process.env.BLOOIO_API_KEY;
 }
 
 // ── Main resolution function ───────────────────────────────────────────────
@@ -147,54 +142,34 @@ export async function resolveMessagingTargets(opts: {
   const resolvedPhone: string =
     perm?.phoneOverride || subData?.phone || subData?.phoneNumber || '';
 
-  const channels: MessageChannel[] = ['sms', 'whatsapp'];
   const decisions: TargetDecision[] = [];
+  const channel: MessageChannel = 'sms';
 
-  for (const channel of channels) {
-    const decide = (allowed: boolean, reason?: string): void => {
-      decisions.push({ channel, allowed, reason });
-    };
+  const decide = (allowed: boolean, reason?: string): void => {
+    decisions.push({ channel, allowed, reason });
+  };
 
-    // 1. Global master switch
-    if (!global.enabled) { decide(false, 'global-disabled'); continue; }
-
-    // 2. Channel switch
-    if (!global.channels[channel]?.enabled) { decide(false, `channel-${channel}-disabled`); continue; }
-
-    // 3. Audience: subcontractors
-    if (!global.audience.subcontractors) { decide(false, 'audience-subcontractors-disabled'); continue; }
-
-    // 4. Event switch
-    const eventSettings = (global.events as any)[type] as { sms: boolean; whatsapp: boolean } | undefined;
-    if (!eventSettings || !eventSettings[channel]) { decide(false, `event-${type}-${channel}-disabled`); continue; }
-
-    // 5. Per-sub master enabled (if perm doc exists)
-    if (perm && !perm.enabled) { decide(false, 'subcontractor-disabled'); continue; }
-
-    // 6. Per-sub channel override (if present)
-    if (perm?.channels && perm.channels[channel] === false) {
-      decide(false, `subcontractor-channel-${channel}-disabled`); continue;
-    }
-
-    // 7. Per-sub event override (if present)
-    const subEvent = (perm?.events as any)?.[type] as { sms?: boolean; whatsapp?: boolean } | undefined;
-    if (subEvent && subEvent[channel] === false) {
-      decide(false, `subcontractor-event-${type}-${channel}-disabled`); continue;
-    }
-
-    // 8. Phone check (skip for approval event since the sub may not exist yet, but we still need phone)
-    if (!resolvedPhone) { decide(false, 'no-phone'); continue; }
-
-    // For non-approval events, require the sub be approved
-    if (type !== 'subcontractor-approval' && subStatus !== 'approved') {
-      decide(false, 'subcontractor-not-approved'); continue;
-    }
-
-    // 9. Provider configured
-    if (!isProviderConfigured(channel)) { decide(false, 'provider-not-configured'); continue; }
-
-    decide(true);
-  }
+  // 1. Global master switch
+  if (!global.enabled) { decide(false, 'global-disabled'); }
+  // 2. Channel switch
+  else if (!global.channels.sms?.enabled) { decide(false, 'channel-sms-disabled'); }
+  // 3. Audience: subcontractors
+  else if (!global.audience.subcontractors) { decide(false, 'audience-subcontractors-disabled'); }
+  // 4. Event switch
+  else if (!(global.events as any)[type]?.sms) { decide(false, `event-${type}-sms-disabled`); }
+  // 5. Per-sub master enabled (if perm doc exists)
+  else if (perm && !perm.enabled) { decide(false, 'subcontractor-disabled'); }
+  // 6. Per-sub channel override (if present)
+  else if (perm?.channels && perm.channels.sms === false) { decide(false, 'subcontractor-channel-sms-disabled'); }
+  // 7. Per-sub event override (if present)
+  else if ((perm?.events as any)?.[type]?.sms === false) { decide(false, `subcontractor-event-${type}-sms-disabled`); }
+  // 8. Phone check
+  else if (!resolvedPhone) { decide(false, 'no-phone'); }
+  // For non-approval events, require the sub be approved
+  else if (type !== 'subcontractor-approval' && subStatus !== 'approved') { decide(false, 'subcontractor-not-approved'); }
+  // 9. Provider configured
+  else if (!isSmsConfigured()) { decide(false, 'provider-not-configured'); }
+  else { decide(true); }
 
   return {
     decisions,

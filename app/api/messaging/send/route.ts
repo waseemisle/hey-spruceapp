@@ -1,18 +1,15 @@
 import { NextResponse } from 'next/server';
 import { resolveMessagingTargets } from '@/lib/messaging/settings';
 import { sendBlooioSmsWithDeliveryPoll } from '@/lib/messaging/blooio';
-import { sendMetaWhatsApp } from '@/lib/messaging/meta-whatsapp';
 import { logMessage } from '@/lib/messaging/logger';
 import {
   subcontractorApprovalText,
   biddingOpportunityText,
   quoteApprovedText,
   testMessageText,
-  mapEventToTemplate,
   appendSmsOptOutFooter,
 } from '@/lib/messaging/templates';
 import { normalizeToE164 } from '@/lib/messaging/phone';
-import { getBaseUrl } from '@/lib/base-url';
 import type { MessageChannel, MessageEventType, MessageStatus } from '@/lib/messaging/types';
 
 export const runtime = 'nodejs';
@@ -61,64 +58,55 @@ interface SendResult {
 
 function buildIdempotencyKey(
   type: MessageEventType,
-  channel: MessageChannel,
   ctx: Record<string, any>,
   subcontractorId?: string,
 ): string {
   switch (type) {
     case 'subcontractor-approval':
-      return `subapr-${subcontractorId}-${channel}`;
+      return `subapr-${subcontractorId}-sms`;
     case 'bidding-opportunity': {
       const wo = String(ctx.workOrderId || ctx.workOrderNumber || 'wo');
       const batch = ctx.shareBatchId ?? ctx.clientSendNonce ?? ctx.shareNonce;
       if (batch != null && String(batch).length > 0) {
-        return `bidop-${wo}-${subcontractorId}-${channel}-${String(batch)}`;
+        return `bidop-${wo}-${subcontractorId}-sms-${String(batch)}`;
       }
       // Server-only callers (no batch): unique per request so Blooio does not suppress SMS for 24h.
-      return `bidop-${wo}-${subcontractorId}-${channel}-srv-${Date.now()}`;
+      return `bidop-${wo}-${subcontractorId}-sms-srv-${Date.now()}`;
     }
     case 'quote-approved':
-      return `quoteapr-${ctx.quoteId}-${subcontractorId}-${channel}`;
+      return `quoteapr-${ctx.quoteId}-${subcontractorId}-sms`;
     default:
-      return `${type}-${subcontractorId}-${channel}-${Date.now()}`;
+      return `${type}-${subcontractorId}-sms-${Date.now()}`;
   }
 }
 
 function buildBody(
   type: MessageEventType,
   ctx: Record<string, any>,
-  channel: MessageChannel,
 ): string {
-  // URLs in SMS trigger carrier spam filters (especially vercel.app domains).
-  // Omit portal URLs from SMS bodies; WhatsApp keeps them via pre-approved templates.
-  const isSms = channel === 'sms';
-  const portalUrl = isSms ? undefined : `${getBaseUrl()}/portal-login`;
-  const biddingUrl = isSms ? undefined : `${getBaseUrl()}/subcontractor-portal/bidding`;
+  // URLs in SMS trigger carrier spam filters — omit portal URLs from all SMS bodies.
   switch (type) {
     case 'subcontractor-approval':
       return subcontractorApprovalText({
         toName: ctx.toName || '',
         businessName: ctx.businessName,
-        portalUrl,
       });
     case 'bidding-opportunity':
       return biddingOpportunityText({
         toName: ctx.toName || '',
         workOrderNumber: ctx.workOrderNumber || '',
         workOrderTitle: ctx.workOrderTitle || '',
-        portalUrl: biddingUrl,
       });
     case 'quote-approved':
       return quoteApprovedText({
         toName: ctx.toName || '',
         workOrderNumber: ctx.workOrderNumber || '',
         workOrderTitle: ctx.workOrderTitle || '',
-        portalUrl: biddingUrl,
       });
     case 'test':
-      return testMessageText({ fromAdmin: ctx.fromAdmin || 'Admin', channel });
+      return testMessageText({ fromAdmin: ctx.fromAdmin || 'Admin' });
     default:
-      return `GroundOps notification: ${type}`;
+      return `Ground Ops notification: ${type}`;
   }
 }
 
@@ -137,7 +125,7 @@ export async function POST(request: Request) {
     } = body as {
       type: MessageEventType;
       subcontractorId?: string;
-      channels?: MessageChannel[];
+      channels?: string[];
       context?: Record<string, any>;
       testPhone?: string;
       testFromAdmin?: string;
@@ -147,8 +135,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Missing type' }, { status: 400 });
     }
 
-    const allChannels: MessageChannel[] = ['sms', 'whatsapp'];
-    const channelsToTry = requestedChannels?.length ? requestedChannels : allChannels;
+    // Only 'sms' is supported; ignore any other channels
+    const channelsToTry: MessageChannel[] = ['sms'];
+    if (requestedChannels?.length && !requestedChannels.includes('sms')) {
+      return NextResponse.json({ success: true, results });
+    }
 
     // ── TEST MODE ──────────────────────────────────────────────────────────
     if (type === 'test') {
@@ -159,80 +150,38 @@ export async function POST(request: Request) {
       const e164 = normalizeToE164(phone);
       const fromAdmin = testFromAdmin || 'Admin';
 
-      for (const channel of channelsToTry) {
-        const ikey = `test-${channel}-${phone}-${Date.now()}`;
-        const msgBody = buildBody('test', { fromAdmin }, channel);
+      const ikey = `test-sms-${phone}-${Date.now()}`;
+      const msgBody = buildBody('test', { fromAdmin });
 
-        if (channel === 'sms') {
-          if (!process.env.BLOOIO_API_KEY) {
-            results.push({ channel, status: 'skipped', skipReason: 'provider-not-configured' });
-            continue;
-          }
-          if (!e164) {
-            results.push({ channel, status: 'failed', error: 'Invalid phone number' });
-            continue;
-          }
-          const smsText = appendSmsOptOutFooter(msgBody);
-          const r = await sendBlooioSmsWithDeliveryPoll({ to: e164, text: smsText, idempotencyKey: ikey });
-          await logMessage({
-            channel: 'sms',
-            provider: 'blooio',
-            type: 'test',
-            to: e164,
-            toName: fromAdmin,
-            recipientRole: 'admin',
-            body: smsText,
-            status: r.status,
-            providerMessageId: r.providerMessageId,
-            providerPayload: pickBlooioSmsLogPayload(r.raw),
-            context: { fromAdmin, testPhone: phone },
-            error: r.error,
-            idempotencyKey: ikey,
-          });
-          results.push({
-            channel,
-            status: r.status,
-            providerMessageId: r.providerMessageId,
-            error: r.error,
-            skipReason: r.skipReason,
-          });
-        } else {
-          if (!process.env.META_WHATSAPP_ACCESS_TOKEN || !process.env.META_WHATSAPP_PHONE_NUMBER_ID) {
-            results.push({ channel, status: 'skipped', skipReason: 'provider-not-configured' });
-            continue;
-          }
-          if (!e164) {
-            results.push({ channel, status: 'failed', error: 'Invalid phone number' });
-            continue;
-          }
-          // For test, try plain text first; if 131047 (outside 24h window), note it
-          const r = await sendMetaWhatsApp({ to: e164, text: msgBody, idempotencyKey: ikey });
-          // If outside 24h window error and test_message_v1 template exists, retry with template
-          let finalResult = r;
-          if (!r.success && r.error?.includes('131047')) {
-            const tplRetry = await sendMetaWhatsApp({
-              to: e164,
-              template: { name: 'test_message_v1', language: 'en', bodyParams: [{ type: 'text', text: channel }] },
-              idempotencyKey: ikey + '-tpl',
-            });
-            if (tplRetry.success) finalResult = tplRetry;
-          }
-          await logMessage({
-            channel: 'whatsapp',
-            provider: 'meta-whatsapp',
-            type: 'test',
-            to: e164,
-            toName: fromAdmin,
-            recipientRole: 'admin',
-            body: msgBody,
-            status: finalResult.status,
-            providerMessageId: finalResult.providerMessageId,
-            context: { fromAdmin, testPhone: phone },
-            error: finalResult.error,
-            idempotencyKey: ikey,
-          });
-          results.push({ channel, status: finalResult.status, providerMessageId: finalResult.providerMessageId, error: finalResult.error });
-        }
+      if (!process.env.BLOOIO_API_KEY) {
+        results.push({ channel: 'sms', status: 'skipped', skipReason: 'provider-not-configured' });
+      } else if (!e164) {
+        results.push({ channel: 'sms', status: 'failed', error: 'Invalid phone number' });
+      } else {
+        const smsText = appendSmsOptOutFooter(msgBody);
+        const r = await sendBlooioSmsWithDeliveryPoll({ to: e164, text: smsText, idempotencyKey: ikey });
+        await logMessage({
+          channel: 'sms',
+          provider: 'blooio',
+          type: 'test',
+          to: e164,
+          toName: fromAdmin,
+          recipientRole: 'admin',
+          body: smsText,
+          status: r.status,
+          providerMessageId: r.providerMessageId,
+          providerPayload: pickBlooioSmsLogPayload(r.raw),
+          context: { fromAdmin, testPhone: phone },
+          error: r.error,
+          idempotencyKey: ikey,
+        });
+        results.push({
+          channel: 'sms',
+          status: r.status,
+          providerMessageId: r.providerMessageId,
+          error: r.error,
+          skipReason: r.skipReason,
+        });
       }
 
       return NextResponse.json({ success: true, results });
@@ -244,17 +193,12 @@ export async function POST(request: Request) {
     }
 
     const resolved = await resolveMessagingTargets({ type, subcontractorId });
-    const portalUrl = `${getBaseUrl()}/portal-login`;
-    const biddingUrl = `${getBaseUrl()}/subcontractor-portal/bidding`;
 
     for (const decision of resolved.decisions) {
-      const { channel } = decision;
-      if (!channelsToTry.includes(channel)) continue;
-
       if (!decision.allowed) {
         await logMessage({
-          channel,
-          provider: channel === 'sms' ? 'blooio' : 'meta-whatsapp',
+          channel: 'sms',
+          provider: 'blooio',
           type,
           to: resolved.resolvedPhone || '',
           toName: resolved.subName,
@@ -265,81 +209,41 @@ export async function POST(request: Request) {
           context,
           error: decision.reason,
         });
-        results.push({ channel, status: 'skipped', skipReason: decision.reason });
+        results.push({ channel: 'sms', status: 'skipped', skipReason: decision.reason });
         continue;
       }
 
       const phone = resolved.resolvedPhone!;
       const toName = resolved.subName || context.toName || '';
+      const enrichedCtx = { ...context, toName };
+      const msgBody = buildBody(type, enrichedCtx);
+      const ikey = buildIdempotencyKey(type, context, subcontractorId);
 
-      // WhatsApp templates use enrichedCtx.portalUrl for their body params.
-      // SMS buildBody ignores it (URLs stripped for carrier filtering), so we keep
-      // portalUrl out of the SMS log context to avoid showing a URL that wasn't sent.
-      const resolvedPortalUrl = type === 'bidding-opportunity' ? biddingUrl : portalUrl;
-      const enrichedCtx = { ...context, toName, portalUrl: resolvedPortalUrl };
-      const smsLogCtx = { ...context, toName }; // no portalUrl — SMS body has no URL
-      const msgBody = buildBody(type, enrichedCtx, channel);
-      const ikey = buildIdempotencyKey(type, channel, context, subcontractorId);
-
-      if (channel === 'sms') {
-        const smsText = appendSmsOptOutFooter(msgBody);
-        const r = await sendBlooioSmsWithDeliveryPoll({ to: phone, text: smsText, idempotencyKey: ikey });
-        await logMessage({
-          channel: 'sms',
-          provider: 'blooio',
-          type,
-          to: phone,
-          toName,
-          recipientRole: 'subcontractor',
-          recipientId: subcontractorId,
-          body: smsText,
-          status: r.status,
-          providerMessageId: r.providerMessageId,
-          providerPayload: pickBlooioSmsLogPayload(r.raw),
-          context: smsLogCtx,
-          error: r.error,
-          idempotencyKey: ikey,
-        });
-        results.push({
-          channel,
-          status: r.status,
-          providerMessageId: r.providerMessageId,
-          error: r.error,
-          skipReason: r.skipReason,
-        });
-      } else {
-        const templateMapping = mapEventToTemplate(type);
-        let r;
-        if (templateMapping) {
-          r = await sendMetaWhatsApp({
-            to: phone,
-            template: {
-              name: templateMapping.name,
-              language: templateMapping.languageCode,
-              bodyParams: templateMapping.buildBodyParams(enrichedCtx),
-            },
-            idempotencyKey: ikey,
-          });
-        } else {
-          r = await sendMetaWhatsApp({ to: phone, text: msgBody, idempotencyKey: ikey });
-        }
-        await logMessage({
-          channel: 'whatsapp',
-          provider: 'meta-whatsapp',
-          type,
-          to: phone,
-          toName,
-          recipientRole: 'subcontractor',
-          recipientId: subcontractorId,
-          body: msgBody,
-          status: r.status,
-          providerMessageId: r.providerMessageId,
-          context: enrichedCtx,
-          error: r.error,
-          idempotencyKey: ikey,
-        });
-        results.push({ channel, status: r.status, providerMessageId: r.providerMessageId, error: r.error });
-      }
+      const smsText = appendSmsOptOutFooter(msgBody);
+      const r = await sendBlooioSmsWithDeliveryPoll({ to: phone, text: smsText, idempotencyKey: ikey });
+      await logMessage({
+        channel: 'sms',
+        provider: 'blooio',
+        type,
+        to: phone,
+        toName,
+        recipientRole: 'subcontractor',
+        recipientId: subcontractorId,
+        body: smsText,
+        status: r.status,
+        providerMessageId: r.providerMessageId,
+        providerPayload: pickBlooioSmsLogPayload(r.raw),
+        context: enrichedCtx,
+        error: r.error,
+        idempotencyKey: ikey,
+      });
+      results.push({
+        channel: 'sms',
+        status: r.status,
+        providerMessageId: r.providerMessageId,
+        error: r.error,
+        skipReason: r.skipReason,
+      });
     }
   } catch (err: any) {
     console.error('[/api/messaging/send] unhandled error:', err?.message);

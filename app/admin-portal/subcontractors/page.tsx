@@ -216,7 +216,7 @@ export default function SubcontractorsManagement() {
           context: { toName: subData.fullName, businessName: subData.businessName, approvedBy: adminName },
         }),
       }).catch(err => console.error('Messaging send failed (non-fatal):', err));
-      toast.success('Subcontractor approved and notified via email + SMS + WhatsApp');
+      toast.success('Subcontractor approved and notified via email + SMS');
       fetchSubcontractors();
     } catch (error) {
       toast.error('Failed to approve subcontractor');
@@ -265,7 +265,7 @@ export default function SubcontractorsManagement() {
           context: { toName: subData.fullName, businessName: subData.businessName, approvedBy: adminName },
         }),
       }).catch(err => console.error('Messaging resend failed (non-fatal):', err));
-      toast.success('Approval re-sent (email + SMS + WhatsApp)');
+      toast.success('Approval re-sent (email + SMS)');
     } catch (error: any) {
       toast.error(error.message || 'Failed to resend approval email');
     } finally {

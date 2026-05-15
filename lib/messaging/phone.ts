@@ -26,7 +26,3 @@ export function looksLikeE164(phone: string): boolean {
   return /^\+\d{8,15}$/.test(phone.trim());
 }
 
-/** Meta WhatsApp wants digits-only (no leading +). */
-export function toMetaWhatsAppFormat(e164: string): string {
-  return e164.replace(/^\+/, '');
-}
