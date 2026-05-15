@@ -4054,7 +4054,7 @@ export default function ViewWorkOrder() {
               )}
 
               {/* Edit History */}
-              {viewQuoteDetail.editHistory?.length > 0 && (
+              {(viewQuoteDetail.editHistory?.length ?? 0) > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <History className="h-3.5 w-3.5" />
