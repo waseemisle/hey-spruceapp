@@ -142,6 +142,11 @@ interface Quote {
   lineItems: LineItem[];
   clientLineItems?: LineItem[];
   notes?: string;
+  proposedServiceDate?: any;
+  proposedServiceTime?: string;
+  editedAt?: any;
+  editedBy?: string;
+  editHistory?: any[];
   status: 'pending' | 'sent_to_client' | 'accepted' | 'rejected';
   createdAt: any;
 }
@@ -3583,9 +3588,9 @@ export default function ViewWorkOrder() {
                                     <Stethoscope className="h-3 w-3" />
                                     Diagnostic Request
                                   </span>
-                                  {(quote as any).editedAt && (
+                                  {quote.editedAt && (
                                     <span
-                                      title={`Edited by ${quote.subcontractorName} on ${(quote as any).editedAt?.toDate?.()?.toLocaleString() ?? ''}`}
+                                      title={`Edited by ${quote.subcontractorName} on ${quote.editedAt?.toDate?.()?.toLocaleString() ?? ''}`}
                                       className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5 cursor-help"
                                     >
                                       <Pencil className="h-3 w-3" />Edited
@@ -3667,9 +3672,9 @@ export default function ViewWorkOrder() {
                                       Diagnostic Bid
                                     </span>
                                   )}
-                                  {(quote as any).editedAt && (
+                                  {quote.editedAt && (
                                     <span
-                                      title={`Edited by ${quote.subcontractorName} on ${(quote as any).editedAt?.toDate?.()?.toLocaleString() ?? ''}`}
+                                      title={`Edited by ${quote.subcontractorName} on ${quote.editedAt?.toDate?.()?.toLocaleString() ?? ''}`}
                                       className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5 cursor-help"
                                     >
                                       <Pencil className="h-3 w-3" />Edited
@@ -4049,14 +4054,14 @@ export default function ViewWorkOrder() {
               )}
 
               {/* Edit History */}
-              {(viewQuoteDetail as any).editHistory?.length > 0 && (
+              {viewQuoteDetail.editHistory?.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <History className="h-3.5 w-3.5" />
-                    Edit History — {(viewQuoteDetail as any).editHistory.length} revision{(viewQuoteDetail as any).editHistory.length !== 1 ? 's' : ''}
+                    Edit History — {viewQuoteDetail.editHistory.length} revision{viewQuoteDetail.editHistory.length !== 1 ? 's' : ''}
                   </p>
                   <div className="space-y-3">
-                    {[...(viewQuoteDetail as any).editHistory].reverse().map((entry: any, idx: number) => {
+                    {[...viewQuoteDetail.editHistory].reverse().map((entry: any, idx: number) => {
                       const editDate = entry.editedAt?.toDate?.() ?? (entry.editedAt instanceof Date ? entry.editedAt : entry.editedAt ? new Date(entry.editedAt) : null);
                       const totalChanged = entry.prevTotalAmount !== entry.newTotalAmount;
                       const notesChanged = (entry.prevNotes ?? '') !== (entry.newNotes ?? '');
@@ -4192,11 +4197,11 @@ export default function ViewWorkOrder() {
                 </div>
               )}
 
-              {(viewQuoteDetail as any).editedAt && !(viewQuoteDetail as any).editHistory?.length && (
+              {viewQuoteDetail.editedAt && !viewQuoteDetail.editHistory?.length && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
                   <Pencil className="h-3.5 w-3.5 flex-shrink-0" />
                   This quote was edited by {viewQuoteDetail.subcontractorName} on{' '}
-                  {(viewQuoteDetail as any).editedAt?.toDate?.()?.toLocaleString() ?? 'unknown date'}.
+                  {viewQuoteDetail.editedAt?.toDate?.()?.toLocaleString() ?? 'unknown date'}.
                   Detailed change history is only recorded for edits made after this feature was added.
                 </div>
               )}
