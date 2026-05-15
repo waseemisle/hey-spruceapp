@@ -3584,7 +3584,10 @@ export default function ViewWorkOrder() {
                                     Diagnostic Request
                                   </span>
                                   {(quote as any).editedAt && (
-                                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                                    <span
+                                      title={`Edited by ${quote.subcontractorName} on ${(quote as any).editedAt?.toDate?.()?.toLocaleString() ?? ''}`}
+                                      className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5 cursor-help"
+                                    >
                                       <Pencil className="h-3 w-3" />Edited
                                     </span>
                                   )}
@@ -3665,7 +3668,10 @@ export default function ViewWorkOrder() {
                                     </span>
                                   )}
                                   {(quote as any).editedAt && (
-                                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+                                    <span
+                                      title={`Edited by ${quote.subcontractorName} on ${(quote as any).editedAt?.toDate?.()?.toLocaleString() ?? ''}`}
+                                      className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-1.5 py-0.5 cursor-help"
+                                    >
                                       <Pencil className="h-3 w-3" />Edited
                                     </span>
                                   )}
@@ -4018,6 +4024,180 @@ export default function ViewWorkOrder() {
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Notes</p>
                   <p className="text-sm whitespace-pre-wrap bg-muted/50 rounded p-3">{viewQuoteDetail.notes}</p>
+                </div>
+              )}
+
+              {/* Proposed service date/time */}
+              {(viewQuoteDetail.proposedServiceDate || viewQuoteDetail.proposedServiceTime) && (
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {viewQuoteDetail.proposedServiceDate && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Proposed Service Date</p>
+                      <p className="font-medium">
+                        {viewQuoteDetail.proposedServiceDate?.toDate?.()?.toLocaleDateString()
+                          ?? new Date(viewQuoteDetail.proposedServiceDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  )}
+                  {viewQuoteDetail.proposedServiceTime && (
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-0.5">Proposed Time</p>
+                      <p className="font-medium">{viewQuoteDetail.proposedServiceTime}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Edit History */}
+              {(viewQuoteDetail as any).editHistory?.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                    <History className="h-3.5 w-3.5" />
+                    Edit History — {(viewQuoteDetail as any).editHistory.length} revision{(viewQuoteDetail as any).editHistory.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="space-y-3">
+                    {[...(viewQuoteDetail as any).editHistory].reverse().map((entry: any, idx: number) => {
+                      const editDate = entry.editedAt?.toDate?.() ?? (entry.editedAt instanceof Date ? entry.editedAt : entry.editedAt ? new Date(entry.editedAt) : null);
+                      const totalChanged = entry.prevTotalAmount !== entry.newTotalAmount;
+                      const notesChanged = (entry.prevNotes ?? '') !== (entry.newNotes ?? '');
+                      const timeChanged = entry.prevProposedServiceTime !== entry.newProposedServiceTime;
+                      const dateChanged = entry.prevProposedServiceDate !== entry.newProposedServiceDate;
+                      return (
+                        <div key={idx} className="rounded-xl border border-border bg-muted/20 overflow-hidden">
+                          {/* Header */}
+                          <div className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border">
+                            <div className="flex items-center gap-2">
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-sm font-semibold">{entry.editedByName || viewQuoteDetail.subcontractorName}</span>
+                            </div>
+                            {editDate && (
+                              <span className="text-xs text-muted-foreground">{editDate.toLocaleString()}</span>
+                            )}
+                          </div>
+
+                          <div className="p-4 space-y-3">
+                            {/* Total change */}
+                            {totalChanged && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <span className="text-xs font-medium text-muted-foreground w-14">Total:</span>
+                                <span className="text-red-600 line-through text-xs">{formatMoney(entry.prevTotalAmount)}</span>
+                                <span className="text-muted-foreground text-xs">→</span>
+                                <span className="text-green-600 font-semibold text-xs">{formatMoney(entry.newTotalAmount)}</span>
+                              </div>
+                            )}
+
+                            {/* Service date/time change */}
+                            {(dateChanged || timeChanged) && (
+                              <div className="flex flex-col gap-1">
+                                {dateChanged && (
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="font-medium text-muted-foreground w-14">Date:</span>
+                                    <span className="text-red-600 line-through">{entry.prevProposedServiceDate ? new Date(entry.prevProposedServiceDate).toLocaleDateString() : '—'}</span>
+                                    <span className="text-muted-foreground">→</span>
+                                    <span className="text-green-600">{entry.newProposedServiceDate ? new Date(entry.newProposedServiceDate).toLocaleDateString() : '—'}</span>
+                                  </div>
+                                )}
+                                {timeChanged && (
+                                  <div className="flex items-center gap-2 text-xs">
+                                    <span className="font-medium text-muted-foreground w-14">Time:</span>
+                                    <span className="text-red-600 line-through">{entry.prevProposedServiceTime || '—'}</span>
+                                    <span className="text-muted-foreground">→</span>
+                                    <span className="text-green-600">{entry.newProposedServiceTime || '—'}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Notes change */}
+                            {notesChanged && (
+                              <div className="text-xs space-y-1">
+                                <p className="font-medium text-muted-foreground">Notes:</p>
+                                <p className="text-red-600 line-through bg-red-50 dark:bg-red-950/20 rounded px-2 py-1">{entry.prevNotes || '(none)'}</p>
+                                <p className="text-green-600 bg-green-50 dark:bg-green-950/20 rounded px-2 py-1">{entry.newNotes || '(none)'}</p>
+                              </div>
+                            )}
+
+                            {/* Previous line items */}
+                            {entry.prevLineItems?.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground mb-1.5">Previous line items:</p>
+                                <div className="border border-border rounded-lg overflow-hidden">
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs min-w-[320px]">
+                                      <thead>
+                                        <tr className="bg-muted/60 text-muted-foreground">
+                                          <th className="px-3 py-1.5 text-left">Description</th>
+                                          <th className="px-3 py-1.5 text-center">Qty</th>
+                                          <th className="px-3 py-1.5 text-right">Unit</th>
+                                          <th className="px-3 py-1.5 text-right">Amount</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-border">
+                                        {entry.prevLineItems.map((li: any, liIdx: number) => (
+                                          <tr key={liIdx} className="bg-red-50/40 dark:bg-red-950/10">
+                                            <td className="px-3 py-1.5">{li.description}</td>
+                                            <td className="px-3 py-1.5 text-center">{li.quantity}</td>
+                                            <td className="px-3 py-1.5 text-right">{formatMoney(li.unitPrice)}</td>
+                                            <td className="px-3 py-1.5 text-right font-medium">{formatMoney(li.amount)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  <div className="px-3 py-1.5 text-right text-xs font-semibold bg-muted/30 border-t border-border text-red-600">
+                                    Was: {formatMoney(entry.prevTotalAmount)}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* New line items */}
+                            {entry.newLineItems?.length > 0 && (
+                              <div>
+                                <p className="text-xs font-medium text-muted-foreground mb-1.5">Updated line items:</p>
+                                <div className="border border-border rounded-lg overflow-hidden">
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs min-w-[320px]">
+                                      <thead>
+                                        <tr className="bg-muted/60 text-muted-foreground">
+                                          <th className="px-3 py-1.5 text-left">Description</th>
+                                          <th className="px-3 py-1.5 text-center">Qty</th>
+                                          <th className="px-3 py-1.5 text-right">Unit</th>
+                                          <th className="px-3 py-1.5 text-right">Amount</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-border">
+                                        {entry.newLineItems.map((li: any, liIdx: number) => (
+                                          <tr key={liIdx} className="bg-green-50/40 dark:bg-green-950/10">
+                                            <td className="px-3 py-1.5">{li.description}</td>
+                                            <td className="px-3 py-1.5 text-center">{li.quantity}</td>
+                                            <td className="px-3 py-1.5 text-right">{formatMoney(li.unitPrice)}</td>
+                                            <td className="px-3 py-1.5 text-right font-medium">{formatMoney(li.amount)}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                  <div className="px-3 py-1.5 text-right text-xs font-semibold bg-muted/30 border-t border-border text-green-600">
+                                    Now: {formatMoney(entry.newTotalAmount)}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {(viewQuoteDetail as any).editedAt && !(viewQuoteDetail as any).editHistory?.length && (
+                <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                  <Pencil className="h-3.5 w-3.5 flex-shrink-0" />
+                  This quote was edited by {viewQuoteDetail.subcontractorName} on{' '}
+                  {(viewQuoteDetail as any).editedAt?.toDate?.()?.toLocaleString() ?? 'unknown date'}.
+                  Detailed change history is only recorded for edits made after this feature was added.
                 </div>
               )}
             </div>

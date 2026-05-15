@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import {
   collection, query, where, onSnapshot, orderBy, limit,
-  getDoc, doc, updateDoc, serverTimestamp,
+  getDoc, doc, updateDoc, serverTimestamp, arrayUnion,
 } from 'firebase/firestore';
 import { onAuthStateChanged } from '@/lib/firebase-auth';
 import { useFirebaseInstance } from '@/lib/use-firebase-instance';
@@ -149,6 +149,26 @@ export default function SubcontractorQuotes() {
 
     setEditSaving(true);
     try {
+      // Snapshot current state so admin can see what changed
+      const prevSnap = await getDoc(doc(db, 'quotes', editingQuote.id));
+      const prev = prevSnap.data() ?? {};
+      const historyEntry = {
+        editedAt: new Date(),
+        editedBy: currentUserId,
+        editedByName: (editingQuote as any).subcontractorName ?? '',
+        prevLineItems: prev.lineItems ?? [],
+        prevTotalAmount: prev.totalAmount ?? 0,
+        prevNotes: prev.notes ?? '',
+        prevProposedServiceDate: prev.proposedServiceDate?.toDate?.()?.toISOString()
+          ?? (prev.proposedServiceDate ? String(prev.proposedServiceDate) : null),
+        prevProposedServiceTime: prev.proposedServiceTime ?? '',
+        newLineItems: validItems,
+        newTotalAmount: editTotal,
+        newNotes: editNotes,
+        newProposedServiceDate: editServiceDate,
+        newProposedServiceTime: editServiceTime,
+      };
+
       await updateDoc(doc(db, 'quotes', editingQuote.id), {
         lineItems: validItems,
         notes: editNotes,
@@ -158,6 +178,7 @@ export default function SubcontractorQuotes() {
         editedAt: serverTimestamp(),
         editedBy: currentUserId,
         updatedAt: serverTimestamp(),
+        editHistory: arrayUnion(historyEntry),
       });
 
       toast.success('Quote updated successfully!');
