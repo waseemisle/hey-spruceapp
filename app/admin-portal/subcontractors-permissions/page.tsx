@@ -207,18 +207,15 @@ export default function SubcontractorsPermissionsPage() {
 
   async function loadOnboardingData() {
     try {
-      const snap = await getDocs(collection(db, 'blooioOnboarding'));
-      const map: Record<string, { onboardedAt: any }> = {};
-      let counter: { count: number; date: string; firstOnboardedAt: any } | null = null;
-      snap.docs.forEach(d => {
-        if (d.id === '_dailyCounter') {
-          counter = d.data() as any;
-        } else {
-          map[d.id] = { onboardedAt: d.data().onboardedAt };
-        }
+      const user = auth?.currentUser;
+      const token = user ? await user.getIdToken().catch(() => '') : '';
+      const res = await fetch('/api/sms/onboard-status', {
+        headers: { Authorization: `Bearer ${token}` },
       });
-      setOnboardingMap(map);
-      setDailyCounter(counter);
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = await res.json();
+      setOnboardingMap(data.map ?? {});
+      setDailyCounter(data.dailyCounter ?? null);
     } catch (err) {
       console.error('Failed to load onboarding data:', err);
     }
