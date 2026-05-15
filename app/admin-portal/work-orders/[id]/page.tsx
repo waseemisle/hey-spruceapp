@@ -4054,14 +4054,16 @@ export default function ViewWorkOrder() {
               )}
 
               {/* Edit History */}
-              {(viewQuoteDetail.editHistory?.length ?? 0) > 0 && (
+              {(viewQuoteDetail.editHistory?.length ?? 0) > 0 && (() => {
+                const editHistory = viewQuoteDetail.editHistory!;
+                return (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <History className="h-3.5 w-3.5" />
-                    Edit History — {viewQuoteDetail.editHistory.length} revision{viewQuoteDetail.editHistory.length !== 1 ? 's' : ''}
+                    Edit History — {editHistory.length} revision{editHistory.length !== 1 ? 's' : ''}
                   </p>
                   <div className="space-y-3">
-                    {[...viewQuoteDetail.editHistory].reverse().map((entry: any, idx: number) => {
+                    {[...editHistory].reverse().map((entry: any, idx: number) => {
                       const editDate = entry.editedAt?.toDate?.() ?? (entry.editedAt instanceof Date ? entry.editedAt : entry.editedAt ? new Date(entry.editedAt) : null);
                       const totalChanged = entry.prevTotalAmount !== entry.newTotalAmount;
                       const notesChanged = (entry.prevNotes ?? '') !== (entry.newNotes ?? '');
@@ -4195,7 +4197,8 @@ export default function ViewWorkOrder() {
                     })}
                   </div>
                 </div>
-              )}
+              );
+              })()}
 
               {viewQuoteDetail.editedAt && !viewQuoteDetail.editHistory?.length && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
