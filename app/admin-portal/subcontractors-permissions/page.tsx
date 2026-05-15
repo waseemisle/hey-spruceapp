@@ -21,7 +21,7 @@ import { SettingCard, SettingRow } from '@/components/ui/setting-card';
 import {
   ShieldCheck, MessageSquare, Smartphone, Users,
   Save, Search, TestTube2, CheckCircle2, XCircle, Loader2,
-  ChevronDown, ChevronUp, AlertTriangle, Edit, Receipt, FileText, Stethoscope,
+  ChevronDown, ChevronUp, AlertTriangle, Edit,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -772,7 +772,7 @@ export default function SubcontractorsPermissionsPage() {
                       </div>
                       {isOnboarded && onboardedRec?.onboardedAt && (
                         <p className="text-xs text-muted-foreground">
-                          Onboarded on {onboardedRec.onboardedAt?.toDate?.()?.toLocaleDateString() ?? '—'}
+                          Onboarded on {new Date(onboardedRec.onboardedAt).toLocaleDateString()}
                         </p>
                       )}
                       {!isOnboarded && phone && (

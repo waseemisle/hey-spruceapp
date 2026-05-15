@@ -423,6 +423,11 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isAdmin();
     }
 
+    // Blooio onboarding tracking — admin only (written by server API routes)
+    match /blooioOnboarding/{docId} {
+      allow read, write: if isSignedIn() && isAdmin();
+    }
+
     // Edit submission permissions - admins write; subcontractors read their own
     match /subcontractorEditPermissions/{subId} {
       allow read: if isSignedIn() && (isAdmin() || subId == request.auth.uid);
