@@ -135,18 +135,15 @@ export default function SubcontractorsPermissionsPage() {
   const [subTestResults, setSubTestResults] = useState<TestResult[]>([]);
   const [subTestLoading, setSubTestLoading] = useState(false);
 
-  // ── Edit Permissions state ─────────────────────────────────────────────────
   const [editPerm, setEditPerm] = useState<EditPerm>({ canEditInvoice: false, canEditQuote: false, canEditDiagnostic: false });
   const [editPermDirty, setEditPermDirty] = useState(false);
   const [editPermSaving, setEditPermSaving] = useState(false);
   const [editPermLoading, setEditPermLoading] = useState(false);
 
-  // ── Onboarding state ───────────────────────────────────────────────────────
   const [onboardingMap, setOnboardingMap] = useState<Record<string, { onboardedAt: any }>>({});
   const [dailyCounter, setDailyCounter] = useState<{ count: number; date: string; firstOnboardedAt: any } | null>(null);
   const [onboardingPhone, setOnboardingPhone] = useState<string | null>(null);
 
-  // Load only after auth is restored and adminUsers doc exists (matches Firestore `isAdmin()`).
   useEffect(() => {
     if (!auth || !db) {
       setGlobalLoading(false);
@@ -316,10 +313,7 @@ export default function SubcontractorsPermissionsPage() {
   function updateGlobalEvent(eventKey: string, value: boolean) {
     setGlobalSettings((prev) => ({
       ...prev,
-      events: {
-        ...prev.events,
-        [eventKey]: { sms: value },
-      },
+      events: { ...prev.events, [eventKey]: { sms: value } },
     }));
     setGlobalDirty(true);
   }
@@ -426,16 +420,10 @@ export default function SubcontractorsPermissionsPage() {
       const res = await fetch('/api/messaging/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'test',
-          testPhone: phone,
-          testFromAdmin: adminName,
-          channels,
-        }),
+        body: JSON.stringify({ type: 'test', testPhone: phone, testFromAdmin: adminName, channels }),
       });
       const data = await res.json();
       setResults(data.results || []);
-      // Persist test recipient
       await setDoc(doc(db, 'messagingSettings', 'global'), { testRecipient: phone }, { merge: true }).catch(() => {});
       if (idToken) await clearServerCache(idToken);
     } catch (err: any) {
@@ -481,13 +469,25 @@ export default function SubcontractorsPermissionsPage() {
     }
   }
 
-  const filteredSubs = subcontractors.filter(
-    (s) =>
-      !subSearch ||
-      s.fullName.toLowerCase().includes(subSearch.toLowerCase()) ||
-      (s.businessName || '').toLowerCase().includes(subSearch.toLowerCase()) ||
-      (s.email || '').toLowerCase().includes(subSearch.toLowerCase()),
-  );
+  const filteredSubs = subcontractors
+    .filter(
+      (s) =>
+        !subSearch ||
+        s.fullName.toLowerCase().includes(subSearch.toLowerCase()) ||
+        (s.businessName || '').toLowerCase().includes(subSearch.toLowerCase()) ||
+        (s.email || '').toLowerCase().includes(subSearch.toLowerCase()),
+    )
+    .sort((a, b) => {
+      const aPhone = (a.phone || a.phoneNumber || '').replace(/\s/g, '');
+      const bPhone = (b.phone || b.phoneNumber || '').replace(/\s/g, '');
+      const aOnboarded = aPhone.startsWith('+') ? !!onboardingMap[aPhone] : false;
+      const bOnboarded = bPhone.startsWith('+') ? !!onboardingMap[bPhone] : false;
+      if (aOnboarded !== bOnboarded) return aOnboarded ? -1 : 1;
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+  const counterCount = dailyCounter?.count ?? 0;
+  const dotFill = counterCount >= 5 ? 'bg-red-500' : counterCount >= 4 ? 'bg-amber-400' : 'bg-green-500';
 
   return (
     <PortalListPage
@@ -496,13 +496,18 @@ export default function SubcontractorsPermissionsPage() {
       icon={ShieldCheck}
     >
       {/* ── Global Messaging ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2">
-        <MessageSquare className="h-5 w-5 text-primary" />
-        <h2 className="text-base font-semibold">Global Messaging</h2>
+      <div className="flex items-center gap-3">
+        <div className="h-7 w-7 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+          <MessageSquare className="h-4 w-4 text-blue-500" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold">Global Messaging</p>
+          <p className="text-xs text-muted-foreground">Configure SMS notifications and audience settings</p>
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
-        <SettingCard title="Messaging Integration" icon={MessageSquare} accent="blue">
+        <SettingCard title="Messaging Integration" icon={MessageSquare}>
           <SettingRow label="Enable messaging globally" description="Master switch — all messages off when disabled">
             <Switch checked={globalSettings.enabled} onCheckedChange={(v) => updateGlobal({ enabled: v })} disabled={globalLoading} />
           </SettingRow>
@@ -523,15 +528,9 @@ export default function SubcontractorsPermissionsPage() {
               </div>
             </div>
           )}
-
-          <div className="pt-1">
-            <Button onClick={saveGlobal} disabled={!globalDirty || globalSaving} size="sm">
-              {globalSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-2" />Save</>}
-            </Button>
-          </div>
         </SettingCard>
 
-        <SettingCard title="Audience" icon={Users} accent="emerald">
+        <SettingCard title="Audience" icon={Users}>
           <SettingRow label="Send to Subcontractors" description="Enable messaging for subcontractor events">
             <Switch
               checked={globalSettings.audience.subcontractors}
@@ -546,17 +545,18 @@ export default function SubcontractorsPermissionsPage() {
             </div>
             <span className="text-xs bg-muted px-2 py-0.5 rounded-full">Coming soon</span>
           </div>
-          <div className="pt-1">
-            <Button onClick={saveGlobal} disabled={!globalDirty || globalSaving} size="sm">
-              {globalSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-2" />Save</>}
-            </Button>
-          </div>
         </SettingCard>
       </div>
 
-      <SettingCard title="Notification Events" icon={ShieldCheck} accent="purple" description="Choose which events trigger SMS notifications">
+      <div>
+        <Button onClick={saveGlobal} disabled={!globalDirty || globalSaving} size="sm">
+          {globalSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-2" />Save Settings</>}
+        </Button>
+      </div>
+
+      <SettingCard title="Notification Events" icon={ShieldCheck} description="Choose which events trigger SMS notifications">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[300px]">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left py-2 pr-4 font-semibold text-muted-foreground text-xs">Event</th>
@@ -576,13 +576,16 @@ export default function SubcontractorsPermissionsPage() {
           </table>
         </div>
         <div>
-          <button onClick={() => setShowFutureEvents((v) => !v)} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={() => setShowFutureEvents((v) => !v)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
             {showFutureEvents ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             Future events {showFutureEvents ? '(hide)' : '(show)'}
           </button>
           {showFutureEvents && (
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-sm min-w-[300px]">
+              <table className="w-full text-sm">
                 <tbody className="divide-y divide-border">
                   {FUTURE_EVENTS.map(({ key, label }) => (
                     <tr key={key} className="opacity-60">
@@ -605,7 +608,7 @@ export default function SubcontractorsPermissionsPage() {
         </div>
       </SettingCard>
 
-      <SettingCard title="Test Send" icon={TestTube2 as any} accent="amber" description="Verify your SMS integration without affecting real events">
+      <SettingCard title="Test Send" icon={TestTube2 as any} description="Verify your SMS integration without affecting real events">
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium block mb-1.5">Test phone number (E.164)</label>
@@ -636,42 +639,44 @@ export default function SubcontractorsPermissionsPage() {
         </div>
       </SettingCard>
 
-      {/* ── Per-Subcontractor (single master-detail) ────────────────────── */}
-      <div className="flex items-center gap-2 pt-1">
-        <Users className="h-5 w-5 text-primary" />
-        <h2 className="text-base font-semibold">Per-Subcontractor Permissions</h2>
-      </div>
-
-      {/* Blooio daily onboarding counter */}
-      <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border text-sm ${
-        !dailyCounter || dailyCounter.count === 0
-          ? 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20 dark:border-green-800 dark:text-green-300'
-          : dailyCounter.count >= 5
-          ? 'bg-red-50 border-red-200 text-red-800 dark:bg-red-950/20 dark:border-red-800 dark:text-red-300'
-          : dailyCounter.count >= 4
-          ? 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/20 dark:border-amber-800 dark:text-amber-300'
-          : 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/20 dark:border-green-800 dark:text-green-300'
-      }`}>
-        <div className="flex items-center gap-2">
-          <Smartphone className="h-4 w-4 flex-shrink-0" />
-          <span className="font-medium">
-            Blooio onboarding: {dailyCounter?.count ?? 0} / 5 used today
-          </span>
+      {/* ── Per-Subcontractor ────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 pt-1">
+        <div className="h-7 w-7 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+          <Users className="h-4 w-4 text-violet-500" />
         </div>
-        {dailyCounter && dailyCounter.count > 0 && (
-          <span className="text-xs">
-            {dailyCounter.count >= 5
-              ? `Limit reached — resets in ${formatTimeUntilReset(dailyCounter.firstOnboardedAt)}`
-              : `Resets in ${formatTimeUntilReset(dailyCounter.firstOnboardedAt)}`}
-          </span>
-        )}
+        <div>
+          <p className="text-sm font-semibold">Per-Subcontractor Permissions</p>
+          <p className="text-xs text-muted-foreground">Manage individual messaging overrides and editing rights</p>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="flex min-h-[560px]">
+      <div
+        className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col"
+        style={{ height: 'min(720px, calc(100vh - 300px))' }}
+      >
+        {/* Daily counter bar */}
+        <div className="flex-shrink-0 border-b border-border px-5 py-2.5 flex items-center justify-between bg-muted/20">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className={`h-2 w-2 rounded-full ${i < counterCount ? dotFill : 'bg-border'}`} />
+              ))}
+            </div>
+            <span className="text-xs font-medium">{counterCount} / 5 onboardings used today</span>
+          </div>
+          {dailyCounter && dailyCounter.count > 0 && (
+            <span className="text-xs text-muted-foreground">
+              resets in {formatTimeUntilReset(dailyCounter.firstOnboardedAt)}
+            </span>
+          )}
+        </div>
+
+        {/* Main split */}
+        <div className="flex flex-1 min-h-0">
+
           {/* Left rail */}
-          <div className="w-64 flex-shrink-0 border-r border-border flex flex-col">
-            <div className="p-3 border-b border-border">
+          <div className="w-[280px] flex-shrink-0 border-r border-border flex flex-col min-h-0">
+            <div className="flex-shrink-0 p-3 border-b border-border">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -682,230 +687,237 @@ export default function SubcontractorsPermissionsPage() {
                 />
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <p className="flex-shrink-0 px-3 py-1.5 text-xs text-muted-foreground border-b border-border">
+              {filteredSubs.length} subcontractor{filteredSubs.length !== 1 ? 's' : ''}
+            </p>
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {filteredSubs.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-8">No approved subcontractors</p>
               ) : (
-                filteredSubs.map((sub) => (
-                  <button
-                    key={sub.id}
-                    onClick={() => selectSub(sub)}
-                    className={`w-full text-left px-4 py-3 border-b border-border last:border-0 hover:bg-muted/50 transition-colors ${
-                      selectedSub?.id === sub.id ? 'bg-primary/10 dark:bg-primary/15 border-l-2 border-l-primary' : ''
-                    }`}
-                  >
-                    <p className="text-sm font-medium truncate">{sub.fullName}</p>
-                    {sub.businessName && <p className="text-xs text-muted-foreground truncate">{sub.businessName}</p>}
-                    <p className="text-xs text-muted-foreground truncate mt-0.5">{sub.email}</p>
-                    {(() => {
-                      const phone = sub.phone || sub.phoneNumber || '';
-                      if (!phone) return <span className="text-xs text-muted-foreground italic">No phone</span>;
-                      const e164 = phone.replace(/\s/g, '').startsWith('+') ? phone.replace(/\s/g, '') : null;
-                      const isOnboarded = e164 && onboardingMap[e164];
-                      return isOnboarded
-                        ? <span className="inline-flex items-center gap-1 text-xs text-green-600"><CheckCircle2 className="h-3 w-3" />Onboarded</span>
-                        : <span className="inline-flex items-center gap-1 text-xs text-amber-600"><AlertTriangle className="h-3 w-3" />Not onboarded</span>;
-                    })()}
-                  </button>
-                ))
+                filteredSubs.map((sub) => {
+                  const phone = sub.phone || sub.phoneNumber || '';
+                  const e164 = phone.replace(/\s/g, '').startsWith('+') ? phone.replace(/\s/g, '') : null;
+                  const isOnboarded = e164 ? !!onboardingMap[e164] : false;
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => selectSub(sub)}
+                      className={`w-full text-left px-4 py-2.5 border-b border-border last:border-0 transition-colors ${
+                        selectedSub?.id === sub.id
+                          ? 'bg-primary/10 dark:bg-primary/15 border-l-[3px] border-l-primary'
+                          : 'hover:bg-muted/40 border-l-[3px] border-l-transparent'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate leading-tight">{sub.fullName}</p>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{sub.email}</p>
+                        </div>
+                        {phone && (
+                          <div
+                            className={`h-2 w-2 rounded-full flex-shrink-0 ${isOnboarded ? 'bg-green-500' : 'bg-amber-400'}`}
+                            title={isOnboarded ? 'Onboarded' : 'Not onboarded'}
+                          />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
               )}
             </div>
           </div>
 
           {/* Right panel */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 flex flex-col min-h-0">
             {!selectedSub ? (
-              <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
-                <ShieldCheck className="h-10 w-10 mb-3 opacity-40" />
+              <div className="p-8 text-muted-foreground">
+                <ShieldCheck className="h-8 w-8 mb-3 opacity-30" />
                 <p className="text-sm font-medium">Select a subcontractor</p>
-                <p className="text-xs mt-1">Configure their messaging and edit permissions</p>
+                <p className="text-xs mt-1">Configure messaging and edit permissions</p>
               </div>
             ) : (subPermLoading || editPermLoading) ? (
-              <div className="flex items-center justify-center h-full">
+              <div className="flex items-center justify-center flex-1">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="p-5 space-y-5">
-                {/* Sub header */}
-                <div className="flex items-start gap-3 pb-4 border-b border-border">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-sm font-semibold text-primary">
-                      {selectedSub.fullName.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-semibold text-base truncate">{selectedSub.fullName}</p>
-                    {selectedSub.businessName && <p className="text-sm text-muted-foreground truncate">{selectedSub.businessName}</p>}
-                    <p className="text-xs text-muted-foreground">{selectedSub.email}</p>
-                    {(selectedSub.phone || selectedSub.phoneNumber) && (
-                      <p className="text-xs font-mono text-muted-foreground">{selectedSub.phone || selectedSub.phoneNumber}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Blooio Onboarding */}
+              <>
                 {(() => {
                   const phone = selectedSub.phone || selectedSub.phoneNumber || '';
-                  const e164 = phone.replace(/\s/g, '').startsWith('+') ? phone.replace(/\s/g, '') : phone ? `+${phone.replace(/\D/g,'').slice(-10)}` : null;
+                  const e164 = phone.replace(/\s/g, '').startsWith('+') ? phone.replace(/\s/g, '') : null;
                   const isOnboarded = e164 ? !!onboardingMap[e164] : false;
                   const onboardedRec = e164 ? onboardingMap[e164] : null;
-                  const limitReached = (dailyCounter?.count ?? 0) >= 5;
+                  const limitReached = counterCount >= 5;
                   return (
-                    <div className={`rounded-xl border p-4 space-y-2 ${isOnboarded ? 'border-green-200 bg-green-50/40 dark:bg-green-950/10 dark:border-green-800' : 'border-amber-200 bg-amber-50/40 dark:bg-amber-950/10 dark:border-amber-800'}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <Smartphone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                          <div>
-                            <p className="text-sm font-semibold">Blooio SMS Onboarding</p>
-                            <p className="text-xs text-muted-foreground font-mono">{phone || 'No phone on file'}</p>
+                    <>
+                      {/* Sticky header */}
+                      <div className="flex-shrink-0 border-b border-border px-5 py-4 bg-card">
+                        <div className="flex items-start gap-3">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <span className="text-sm font-semibold text-primary">
+                              {selectedSub.fullName.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-base truncate">{selectedSub.fullName}</p>
+                            {selectedSub.businessName && <p className="text-xs text-muted-foreground truncate">{selectedSub.businessName}</p>}
+                            <p className="text-xs text-muted-foreground">{selectedSub.email}</p>
                           </div>
                         </div>
-                        {isOnboarded ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-300 px-2.5 py-1 rounded-full">
-                            <CheckCircle2 className="h-3.5 w-3.5" />Onboarded
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-700 bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 px-2.5 py-1 rounded-full">
-                            <AlertTriangle className="h-3.5 w-3.5" />Not onboarded
-                          </span>
-                        )}
-                      </div>
-                      {isOnboarded && onboardedRec?.onboardedAt && (
-                        <p className="text-xs text-muted-foreground">
-                          Onboarded on {new Date(onboardedRec.onboardedAt).toLocaleDateString()}
-                        </p>
-                      )}
-                      {!isOnboarded && phone && (
-                        <div className="pt-1">
-                          {limitReached ? (
-                            <p className="text-xs text-red-600 dark:text-red-400">
-                              Daily limit reached (5/5). Resets in {formatTimeUntilReset(dailyCounter?.firstOnboardedAt)}.
-                            </p>
-                          ) : (
+
+                        {/* Inline onboarding row */}
+                        <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Smartphone className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs font-mono text-muted-foreground">{phone || 'No phone on file'}</span>
+                            {phone && (
+                              <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+                                isOnboarded
+                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                              }`}>
+                                {isOnboarded ? (
+                                  <><CheckCircle2 className="h-3 w-3" />Onboarded{onboardedRec?.onboardedAt ? ` · ${new Date(onboardedRec.onboardedAt).toLocaleDateString()}` : ''}</>
+                                ) : (
+                                  <><AlertTriangle className="h-3 w-3" />Not onboarded</>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                          {!isOnboarded && phone && !limitReached && (
                             <Button
                               size="sm"
                               variant="outline"
                               disabled={onboardingPhone === phone}
                               onClick={() => handleOnboardNumber(selectedSub)}
                             >
-                              {onboardingPhone === phone ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Onboarding...</> : <><Smartphone className="h-4 w-4 mr-2" />Onboard Number</>}
+                              {onboardingPhone === phone
+                                ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Onboarding...</>
+                                : <><Smartphone className="h-3.5 w-3.5 mr-1.5" />Onboard</>}
                             </Button>
                           )}
+                          {limitReached && !isOnboarded && phone && (
+                            <span className="text-xs text-red-600 dark:text-red-400">
+                              Daily limit reached. Resets in {formatTimeUntilReset(dailyCounter?.firstOnboardedAt)}
+                            </span>
+                          )}
+                          {!phone && (
+                            <span className="text-xs text-muted-foreground italic">
+                              Add a phone number to this subcontractor's profile first.
+                            </span>
+                          )}
                         </div>
-                      )}
-                      {!phone && (
-                        <p className="text-xs text-muted-foreground italic">Add a phone number to this subcontractor's profile first.</p>
-                      )}
-                    </div>
+                      </div>
+
+                      {/* Scrollable cards */}
+                      <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
+                        <SettingCard title="Edit Submission Permissions" icon={Edit as any}>
+                          <SettingRow label="Can edit submitted invoice" description="Allow updating a direct invoice before it is approved or paid">
+                            <Switch checked={editPerm.canEditInvoice} onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditInvoice: v })); setEditPermDirty(true); }} />
+                          </SettingRow>
+                          <SettingRow label="Can edit submitted quote" description="Allow updating a quote before it is approved">
+                            <Switch checked={editPerm.canEditQuote} onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditQuote: v })); setEditPermDirty(true); }} />
+                          </SettingRow>
+                          <SettingRow label="Can edit diagnostic request" description="Allow updating a diagnostic request or results before admin review">
+                            <Switch checked={editPerm.canEditDiagnostic} onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditDiagnostic: v })); setEditPermDirty(true); }} />
+                          </SettingRow>
+                          <div className="pt-1">
+                            <Button onClick={saveEditPerm} disabled={!editPermDirty || editPermSaving} size="sm">
+                              {editPermSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-2" />Save Edit Permissions</>}
+                            </Button>
+                          </div>
+                        </SettingCard>
+
+                        <SettingCard title="Messaging Override" icon={MessageSquare}>
+                          <SettingRow label="Receive messaging notifications" description="Overrides the global audience setting for this subcontractor">
+                            <Switch checked={subPerm.enabled} onCheckedChange={(v) => updateSubPerm({ enabled: v })} />
+                          </SettingRow>
+                          {subPerm.enabled && (
+                            <div className="space-y-3 pt-2">
+                              <SettingRow label="SMS channel" indent>
+                                <Switch checked={subPerm.channels?.sms !== false} onCheckedChange={(v) => updateSubPerm({ channels: { sms: v } })} />
+                              </SettingRow>
+                            </div>
+                          )}
+                          <div>
+                            <label className="text-sm font-medium block mb-1.5">Phone override (optional)</label>
+                            <Input
+                              placeholder={selectedSub.phone || selectedSub.phoneNumber || '+1...'}
+                              value={subPerm.phoneOverride || ''}
+                              onChange={(e) => updateSubPerm({ phoneOverride: e.target.value || undefined })}
+                              className="max-w-xs font-mono text-sm"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">Leave blank to use the phone from their profile.</p>
+                          </div>
+                          <div className="pt-1">
+                            <Button onClick={saveSubPerm} disabled={!subPermDirty || subPermSaving} size="sm">
+                              {subPermSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-2" />Save Messaging Override</>}
+                            </Button>
+                          </div>
+                        </SettingCard>
+
+                        <SettingCard title="Test Send" icon={TestTube2 as any}>
+                          <p className="text-xs text-muted-foreground">
+                            Sends a test to: <span className="font-mono">{subPerm.phoneOverride || selectedSub.phone || selectedSub.phoneNumber || 'No phone'}</span>
+                          </p>
+                          {!(subPerm.phoneOverride || selectedSub.phone || selectedSub.phoneNumber) && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400">No phone number on file.</p>
+                          )}
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={subTestLoading || !(subPerm.phoneOverride || selectedSub.phone || selectedSub.phoneNumber)}
+                              onClick={async () => {
+                                const testToPhone = subPerm.phoneOverride || selectedSub.phone || selectedSub.phoneNumber || '';
+                                setSubTestLoading(true);
+                                setSubTestResults([]);
+                                try {
+                                  const user = auth.currentUser;
+                                  const adminDoc = user ? await getDoc(doc(db, 'adminUsers', user.uid)).catch(() => null) : null;
+                                  const adminName = adminDoc?.exists() ? adminDoc.data().fullName : 'Admin';
+                                  const res = await fetch('/api/messaging/send', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ type: 'test', testPhone: testToPhone, testFromAdmin: adminName, channels: ['sms'] }),
+                                  });
+                                  const data = await res.json();
+                                  setSubTestResults(data.results || []);
+                                } catch (err: any) {
+                                  toast.error(err?.message || 'Test failed');
+                                } finally {
+                                  setSubTestLoading(false);
+                                }
+                              }}
+                            >
+                              {subTestLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
+                              Send Test SMS
+                            </Button>
+                          </div>
+                          {subTestResults.length > 0 && (
+                            <div className="space-y-2 mt-2">
+                              {subTestResults.map((r, i) => (
+                                <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30 text-sm">
+                                  {r.status === 'sent' || r.status === 'queued' || r.status === 'delivered'
+                                    ? <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                                    : <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />}
+                                  <div className="min-w-0">
+                                    <p className="font-medium">{r.channel.toUpperCase()} — {r.status}</p>
+                                    {r.providerMessageId && <p className="text-xs font-mono text-muted-foreground mt-0.5">ID: {r.providerMessageId}</p>}
+                                    {r.error && <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{r.error}</p>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </SettingCard>
+                      </div>
+                    </>
                   );
                 })()}
-
-                {/* Edit Submission Permissions */}
-                <SettingCard title="Edit Submission Permissions" icon={Edit as any} accent="amber">
-                  <SettingRow label="Can edit submitted invoice" description="Allow updating a direct invoice before it is approved or paid">
-                    <Switch checked={editPerm.canEditInvoice} onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditInvoice: v })); setEditPermDirty(true); }} />
-                  </SettingRow>
-                  <SettingRow label="Can edit submitted quote" description="Allow updating a quote before it is approved">
-                    <Switch checked={editPerm.canEditQuote} onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditQuote: v })); setEditPermDirty(true); }} />
-                  </SettingRow>
-                  <SettingRow label="Can edit diagnostic request" description="Allow updating a diagnostic request or results before admin review">
-                    <Switch checked={editPerm.canEditDiagnostic} onCheckedChange={(v) => { setEditPerm(p => ({ ...p, canEditDiagnostic: v })); setEditPermDirty(true); }} />
-                  </SettingRow>
-                  <div className="pt-1">
-                    <Button onClick={saveEditPerm} disabled={!editPermDirty || editPermSaving} size="sm">
-                      {editPermSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-2" />Save Edit Permissions</>}
-                    </Button>
-                  </div>
-                </SettingCard>
-
-                {/* Messaging Override */}
-                <SettingCard title="Messaging Override" icon={MessageSquare} accent="blue">
-                  <SettingRow label="Receive messaging notifications" description="Overrides the global audience setting for this subcontractor">
-                    <Switch checked={subPerm.enabled} onCheckedChange={(v) => updateSubPerm({ enabled: v })} />
-                  </SettingRow>
-                  {subPerm.enabled && (
-                    <div className="space-y-3 pt-2">
-                      <SettingRow label="SMS channel" indent>
-                        <Switch checked={subPerm.channels?.sms !== false} onCheckedChange={(v) => updateSubPerm({ channels: { sms: v } })} />
-                      </SettingRow>
-                    </div>
-                  )}
-                  <div>
-                    <label className="text-sm font-medium block mb-1.5">Phone override (optional)</label>
-                    <Input
-                      placeholder={selectedSub.phone || selectedSub.phoneNumber || '+1...'}
-                      value={subPerm.phoneOverride || ''}
-                      onChange={(e) => updateSubPerm({ phoneOverride: e.target.value || undefined })}
-                      className="max-w-xs font-mono text-sm"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Leave blank to use the phone from their profile.</p>
-                  </div>
-                  <div className="pt-1">
-                    <Button onClick={saveSubPerm} disabled={!subPermDirty || subPermSaving} size="sm">
-                      {subPermSaving ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : <><Save className="h-4 w-4 mr-2" />Save Messaging Override</>}
-                    </Button>
-                  </div>
-                </SettingCard>
-
-                {/* Test Send to this sub */}
-                <SettingCard title="Test Send" icon={TestTube2 as any} accent="gray">
-                  <p className="text-xs text-muted-foreground">
-                    Sends a test to: <span className="font-mono">{subPerm.phoneOverride || selectedSub.phone || selectedSub.phoneNumber || 'No phone'}</span>
-                  </p>
-                  {!(subPerm.phoneOverride || selectedSub.phone || selectedSub.phoneNumber) && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">No phone number on file.</p>
-                  )}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={subTestLoading || !(subPerm.phoneOverride || selectedSub.phone || selectedSub.phoneNumber)}
-                      onClick={async () => {
-                        const phone = subPerm.phoneOverride || selectedSub.phone || selectedSub.phoneNumber || '';
-                        setSubTestLoading(true);
-                        setSubTestResults([]);
-                        try {
-                          const user = auth.currentUser;
-                          const adminDoc = user ? await getDoc(doc(db, 'adminUsers', user.uid)).catch(() => null) : null;
-                          const adminName = adminDoc?.exists() ? adminDoc.data().fullName : 'Admin';
-                          const res = await fetch('/api/messaging/send', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type: 'test', testPhone: phone, testFromAdmin: adminName, channels: ['sms'] }),
-                          });
-                          const data = await res.json();
-                          setSubTestResults(data.results || []);
-                        } catch (err: any) {
-                          toast.error(err?.message || 'Test failed');
-                        } finally {
-                          setSubTestLoading(false);
-                        }
-                      }}
-                    >
-                      {subTestLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Smartphone className="h-4 w-4 mr-2" />}
-                      Send Test SMS
-                    </Button>
-                  </div>
-                  {subTestResults.length > 0 && (
-                    <div className="space-y-2 mt-2">
-                      {subTestResults.map((r, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-muted/30 text-sm">
-                          {r.status === 'sent' || r.status === 'queued' || r.status === 'delivered'
-                            ? <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                            : <XCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />}
-                          <div className="min-w-0">
-                            <p className="font-medium">{r.channel.toUpperCase()} — {r.status}</p>
-                            {r.providerMessageId && <p className="text-xs font-mono text-muted-foreground mt-0.5">ID: {r.providerMessageId}</p>}
-                            {r.error && <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{r.error}</p>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </SettingCard>
-              </div>
+              </>
             )}
           </div>
+
         </div>
       </div>
 
