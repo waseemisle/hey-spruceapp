@@ -218,14 +218,14 @@ export default function AdminQuoteDetail() {
         }));
       }
 
-      // In-app notification.
+      // In-app notification (fire-and-forget — don't block button while writing to Firestore).
       if (quote.workOrderNumber) {
         const primaryWoId =
           (Array.isArray(quote.workOrderIds) && quote.workOrderIds.length > 0 ? String(quote.workOrderIds[0]) : null) ||
           quote.workOrderId ||
           null;
         if (primaryWoId) {
-          await notifyClientOfQuoteSent(quote.clientId, primaryWoId, quote.workOrderNumber, clientAmount);
+          notifyClientOfQuoteSent(quote.clientId, primaryWoId, quote.workOrderNumber, clientAmount).catch(() => {});
         }
       }
 

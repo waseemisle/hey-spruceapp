@@ -534,38 +534,42 @@ export default function ViewClientWorkOrder() {
 
       await Promise.all(promises);
 
-      await notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title);
+      // Fire-and-forget: notifications + emails don't block the submit button
+      notifyBiddingOpportunity(subAuthIds, workOrder.id, workOrderNumber, workOrder.title)
+        .catch(err => console.error('notifyBiddingOpportunity failed (non-fatal):', err));
 
-      try {
-        for (const subId of selectedSubcontractors) {
-          const sub = subcontractors.find(s => s.id === subId);
-          if (!sub) continue;
-          if (sub.email) {
-            await fetch('/api/email/send-bidding-opportunity', {
+      void (async () => {
+        try {
+          for (const subId of selectedSubcontractors) {
+            const sub = subcontractors.find(s => s.id === subId);
+            if (!sub) continue;
+            if (sub.email) {
+              await fetch('/api/email/send-bidding-opportunity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  toEmail: sub.email,
+                  toName: sub.fullName,
+                  workOrderNumber,
+                  workOrderTitle: workOrder.title,
+                  workOrderDescription: workOrder.description,
+                  locationName: workOrder.locationName,
+                  category: workOrder.category,
+                  priority: workOrder.priority,
+                  portalLink: `${window.location.origin}/subcontractor-portal/bidding`,
+                }),
+              });
+            }
+            fetch('/api/messaging/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                toEmail: sub.email,
-                toName: sub.fullName,
-                workOrderNumber,
-                workOrderTitle: workOrder.title,
-                workOrderDescription: workOrder.description,
-                locationName: workOrder.locationName,
-                category: workOrder.category,
-                priority: workOrder.priority,
-                portalLink: `${window.location.origin}/subcontractor-portal/bidding`,
-              }),
-            });
+              body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subcontractorAuthId(sub), context: { workOrderId: workOrder.id, workOrderNumber, workOrderTitle: workOrder.title, locationName: workOrder.locationName, category: workOrder.category, priority: workOrder.priority, shareBatchId } }),
+            }).catch(err => console.error('Messaging send failed (non-fatal):', err));
           }
-          fetch('/api/messaging/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'bidding-opportunity', subcontractorId: subcontractorAuthId(sub), context: { workOrderId: workOrder.id, workOrderNumber, workOrderTitle: workOrder.title, locationName: workOrder.locationName, category: workOrder.category, priority: workOrder.priority, shareBatchId } }),
-          }).catch(err => console.error('Messaging send failed (non-fatal):', err));
+        } catch (emailError) {
+          console.error('Failed to send bidding opportunity emails:', emailError);
         }
-      } catch (emailError) {
-        console.error('Failed to send bidding opportunity emails:', emailError);
-      }
+      })();
 
       const currentUser = auth.currentUser;
       if (!currentUser) return;

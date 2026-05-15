@@ -1840,14 +1840,12 @@ export default function ViewWorkOrder() {
         updatedAt: serverTimestamp(),
       });
       if (shareQuote.workOrderId && shareQuote.workOrderNumber) {
-        try {
-          await notifyClientOfQuoteSent(
-            (workOrder as any).clientId,
-            shareQuote.workOrderId,
-            shareQuote.workOrderNumber,
-            clientAmount
-          );
-        } catch { /* best effort */ }
+        notifyClientOfQuoteSent(
+          (workOrder as any).clientId,
+          shareQuote.workOrderId,
+          shareQuote.workOrderNumber,
+          clientAmount
+        ).catch(() => {});
       }
 
       // Send the quote email to the client. Fire-and-forget so the modal
