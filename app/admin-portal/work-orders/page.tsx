@@ -1945,51 +1945,46 @@ const handleLocationSelect = (locationId: string) => {
 
       await Promise.all(promises);
 
-      // Notify all selected subcontractors about bidding opportunity
-      await notifyBiddingOpportunity(
+      // Notify all selected subcontractors about bidding opportunity (fire-and-forget)
+      notifyBiddingOpportunity(
         subAuthIds,
         workOrderToShare.id,
         workOrderNumber,
         workOrderToShare.title
-      );
+      ).catch(err => console.error('notifyBiddingOpportunity failed (non-fatal):', err));
 
-      // Send email notifications to all selected subcontractors in parallel
-      try {
-        await Promise.all(selectedSubcontractors.map(async (subId) => {
-          const sub = subcontractors.find(s => s.id === subId);
-          if (!sub) return;
-          if (sub.email) {
-            await fetch('/api/email/send-bidding-opportunity', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                toEmail: sub.email,
-                toName: sub.fullName,
-                workOrderNumber: workOrderNumber,
-                workOrderTitle: workOrderToShare.title,
-                workOrderDescription: workOrderToShare.description,
-                locationName: workOrderToShare.locationName,
-                category: workOrderToShare.category,
-                priority: workOrderToShare.priority,
-                portalLink: `${window.location.origin}/subcontractor-portal/bidding`,
-              }),
-            });
-          }
-          const messagingSubId = subcontractorAuthId(sub);
-          fetch('/api/messaging/send', {
+      // Send email + SMS notifications to all selected subcontractors (fire-and-forget)
+      void Promise.all(selectedSubcontractors.map(async (subId) => {
+        const sub = subcontractors.find(s => s.id === subId);
+        if (!sub) return;
+        if (sub.email) {
+          await fetch('/api/email/send-bidding-opportunity', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              type: 'bidding-opportunity',
-              subcontractorId: messagingSubId,
-              context: { workOrderId: workOrderToShare.id, workOrderNumber, workOrderTitle: workOrderToShare.title, locationName: workOrderToShare.locationName, category: workOrderToShare.category, priority: workOrderToShare.priority, shareBatchId },
+              toEmail: sub.email,
+              toName: sub.fullName,
+              workOrderNumber: workOrderNumber,
+              workOrderTitle: workOrderToShare.title,
+              workOrderDescription: workOrderToShare.description,
+              locationName: workOrderToShare.locationName,
+              category: workOrderToShare.category,
+              priority: workOrderToShare.priority,
+              portalLink: `${window.location.origin}/subcontractor-portal/bidding`,
             }),
-          }).catch(err => console.error('Messaging send failed (non-fatal):', err));
-        }));
-      } catch (emailError) {
-        console.error('Failed to send bidding opportunity emails:', emailError);
-        // Don't fail the whole operation if emails fail
-      }
+          });
+        }
+        const messagingSubId = subcontractorAuthId(sub);
+        fetch('/api/messaging/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'bidding-opportunity',
+            subcontractorId: messagingSubId,
+            context: { workOrderId: workOrderToShare.id, workOrderNumber, workOrderTitle: workOrderToShare.title, locationName: workOrderToShare.locationName, category: workOrderToShare.category, priority: workOrderToShare.priority, shareBatchId },
+          }),
+        }).catch(err => console.error('Messaging send failed (non-fatal):', err));
+      })).catch(err => console.error('Failed to send bidding opportunity notifications:', err));
 
       // Get admin user data
       const currentUser = auth.currentUser;

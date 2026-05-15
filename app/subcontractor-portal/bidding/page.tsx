@@ -907,15 +907,20 @@ export default function SubcontractorBidding() {
       }
 
       if (!isEditMode) {
-        const quoteNotifyToken = await auth.currentUser?.getIdToken().catch(() => undefined);
-        await notifyQuoteSubmission(
-          selectedBidding.clientId,
-          primaryWorkOrderId,
-          selectedBidding.workOrderNumber || primaryWorkOrderId,
-          subData.fullName || subData.businessName,
-          total,
-          quoteNotifyToken,
-        );
+        // Fire-and-forget: notify admins in background, don't block the submit button
+        void (async () => {
+          try {
+            const quoteNotifyToken = await auth.currentUser?.getIdToken().catch(() => undefined);
+            await notifyQuoteSubmission(
+              selectedBidding.clientId,
+              primaryWorkOrderId,
+              selectedBidding.workOrderNumber || primaryWorkOrderId,
+              subData.fullName || subData.businessName,
+              total,
+              quoteNotifyToken,
+            );
+          } catch {}
+        })();
 
         void (async () => {
           try {
